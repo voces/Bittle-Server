@@ -1,0 +1,19 @@
+{
+  "name": "bittle",
+  "version": "1.0.0",
+  "description": "Server for bittle.",
+  "main": "main.js",
+  "dependencies": {
+    "async": "^1.5.2",
+    "console-stamp": "^0.2.0",
+    "deep-freeze-strict": "^1.1.1",
+    "mongodb": "^2.1.7",
+    "ws": "^1.0.1"
+  },
+  "devDependencies": {},
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "GPL-3.0"
+}
