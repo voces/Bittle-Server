@@ -15,11 +15,41 @@ class MongoDB {
 
         const spawn = require("child_process").spawn;
 
+        //Run mongodb and pass any arguments
         this.process = spawn("mongod", config.args.split(" "));
 
+        //Capture the output: both general and errors
         this.process.stdout.on("data", this.processOut.bind(this));
         this.process.stderr.on("data", this.processErr.bind(this));
 
+    }
+
+    processOut(data) {
+
+        //Data comes in as a buffer, convert to string
+        data = data.toString();
+
+        //Capture the line that indicates what port MongoDB is on
+        if (data.indexOf("waiting for connections on port") >= 0) {
+
+            //Grab that port
+            this.port = data.slice(data.indexOf("port") + 5).split(/\D/)[0];
+
+            console.log(`Found mongod on port '${this.port}'`);
+
+            //Theoretically disable this listener, but this is not how you do it
+            //  TODO: fix me
+            this.process.stdout.removeListener("data", this.processOut);
+
+            //We can now connect to our mongo database
+            this.connectToMongo();
+
+        }
+
+    }
+
+    processErr(data) {
+        console.error("mongoErr", data.toString());
     }
 
     connectToMongo() {
@@ -31,14 +61,17 @@ class MongoDB {
          *  Connect to mongodb
          */
 
+         //Build up the address of the database
          this.url = `mongodb://localhost:${this.port}/${this.config.database}`;
 
          console.log(`Connecting to mongod at '${this.url}'`);
 
         const MongoClient = require('mongodb').MongoClient;
 
+        //Connect to it
         MongoClient.connect(this.url, (err, db) => {
 
+            //If any errors occur, kill the server and database processes
             if (err) {
 
                 console.error(`Error connecting to mongodb at '${this.url}', exiting`)
@@ -54,30 +87,9 @@ class MongoDB {
 
     }
 
-    processOut(data) {
-
-        data = data.toString();
-
-        if (data.indexOf("waiting for connections on port") >= 0) {
-
-            this.port = data.slice(data.indexOf("port") + 5).split(/\D/)[0];
-
-            console.log(`Found mongod on port '${this.port}'`);
-
-            this.process.stdout.removeListener("data", this.processOut);
-
-            this.connectToMongo();
-
-        }
-
-    }
-
-    processErr(data) {
-        console.error("mongoErr", data.toString());
-    }
-
 }
 
+//Force a singleton database
 module.exports = () => {
 
     let db;

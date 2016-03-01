@@ -1,6 +1,6 @@
 "use strict";
-// const spawn = require("child_process").spawn;
 
+//Wrap console statements with timestamps and colors
 require("console-stamp")(console, {
         pattern: "dd/mm/yyyy HH:MM:ss.l",
         colors: {
@@ -14,14 +14,8 @@ const deepFreeze = require("deep-freeze-strict"),
     db = require("./src/database"),
     server = require("./src/server");
 
-let config;
-
-    // Database = require("./Database/Database.js")
-
-require("./src/config")((data) => {
-
-    //Replace config with a JSON object
-    config = data;
+//Load the config file and return it as a JSON object
+require("./src/config")(config => {
 
     //Freeze the config; make it is static forever
     deepFreeze(config);

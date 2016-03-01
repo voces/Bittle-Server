@@ -1,10 +1,20 @@
 
 "use strict";
 
-const EventEmitter = require("events");
+const EventEmitter = require("events"),
+
+    //A list of all events
+    EVENTS = {
+        PREAUTH: ["register", "login", "changePass", "changeEmail", "resetPass"],
+        POSTAUTH: ["changePass", "changeEmail", "resetPass", "logout"],
+        PERMISSION: ["addPermission", "addPermissionConfirm", "removePermission"],
+        REPO: ["createRepo", "deleteRepo", "mergeRepo"],
+        SYNC: ["create", "createDirectory", "insert", "erase", "split", "merge", "rename", "move"]
+    };
 
 class Request extends EventEmitter {
 
+    //All events start queued
     constructor(client, json) {
 
         super();
@@ -15,17 +25,35 @@ class Request extends EventEmitter {
 
         this.status = "queued";
 
-        console.log("Request", this.json.id);
-
     }
 
     process() {
 
         this.status = "open";
 
-        this.send();
+        // this.client.log("[PROCESS]", this.json.id);
 
-        this.finish();
+        if (!this.client.authenticated) {
+
+            //Handle PREAUTH events here
+
+            this.finish({
+                id: "onReject",
+                reason: "Bad auth ID.",
+                data: this.json
+            });
+
+        } else {
+
+            //Handle all other events here
+
+            this.finish({
+                id: "onReject",
+                reason: "Bad ID.",
+                data: this.json
+            });
+
+        }
 
     }
 
@@ -35,8 +63,13 @@ class Request extends EventEmitter {
 
         this.send(json);
 
+        // this.client.log("[FINISH]", this.json.id);
+
+        this.emit("finish", this);
+
     }
 
+    //Set status of all packets; set part if part > 1
     send(json) {
 
         json = json || {};
@@ -47,8 +80,6 @@ class Request extends EventEmitter {
         else this.part++;
 
         this.client.send(json);
-
-        this.emit("close");
 
     }
 

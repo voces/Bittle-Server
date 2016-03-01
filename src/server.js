@@ -2,16 +2,12 @@
 "use strict";
 
 const EventEmitter = require("events"),
+    fs = require("fs"),
+    https = require("https"),
+    ws = require("ws"),
+    async = require("async"),
 
     Client = require("./Client");
-
-function readFileThunk(path, callback) {
-
-    const fs = require("fs");
-
-    fs.readFile(path, (err, data) => callback(err, data));
-
-}
 
 class WSS extends EventEmitter {
 
@@ -21,17 +17,15 @@ class WSS extends EventEmitter {
 
         this.config = config;
 
-        const https = require("https"),
-            ws = require("ws"),
-            async = require("async");
-
         console.log(`Loading https keys`);
 
+        //Load the keys in parallel
         async.parallel({
-            key: callback => readFileThunk(config.key, callback),
-            cert: callback => readFileThunk(config.cert, callback),
+            key: callback => fs.readFile(config.key, callback),
+            cert: callback => fs.readFile(config.cert, callback),
         }, (err, results) => {
 
+            //If the keys fail to load, kill the process
             if (err) {
 
                 console.error(err);
@@ -43,24 +37,29 @@ class WSS extends EventEmitter {
 
             console.log(`Starting https/wss server on port '${config.port}'`)
 
+            //Spawn an HTTPS server
             this.https = https.createServer({
                 key: results.key,
                 cert: results.cert
+
+            //This part only exists to make accepting the certficate easier
+            }, (req, res) => {
+                res.writeHead("200");
+                res.end("hello world");
+
+            //Start listening on a port
             }).listen(config.port);
 
+            //Spawn a WS server (essentially a decorator on HTTPS)
             this.server = new ws.Server({server: this.https});
 
-            //Very attach some utility, then re-emit the event
+            //Add some properties to the socket for easy access, then re-emit
+            //  the event
             this.server.on("connection", socket => {
-
-                // console.log(socket);
 
                 socket.ip = socket.upgradeReq.connection.remoteAddress;
                 socket.family = socket._socket._peername.family;
                 socket.port = socket._socket._peername.port;
-
-                // for (let prop in socket)
-                //     console.log("socket", prop, typeof socket[prop], ((typeof socket[prop] !== "object" && typeof socket[prop] !== "function") ? socket[prop] : ""));
 
                 this.emit("connection", socket);
 
@@ -76,6 +75,9 @@ class Server {
 
     constructor() {
 
+        //The general Server class can take in clients form sub-servers (like
+        //  WebSockets)
+
         this.servers = [];
         this.clients = [];
 
@@ -85,21 +87,19 @@ class Server {
 
         this.servers.push(server);
 
-        server.on("connection", this.onOpen.bind(this));
+        //Only event we care about from a sub-server
+        server.on("connection", socket => this.clients.push(new Client(socket)));
 
     }
 
-    onOpen(socket) {
-
-        this.clients.push(new Client(socket));
-
-    }
-
+    //A server can have a delayed start, but all sub-servers must be loaded at
+    //  the same time
     start(config) {
 
         if (this.started) return;
         this.started = true;
 
+        //Many sub-servers can be loaded
         for (let i = 0; i < config.length; i++)
 
             switch (config[i].type) {
@@ -114,4 +114,5 @@ class Server {
 
 }
 
+//Essentially a singleton
 module.exports = new Server();

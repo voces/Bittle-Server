@@ -9,8 +9,8 @@
         {
             "type": "wss",
             "port": 8086,
-            "key": "config/passless.key",
-            "cert": "config/public.crt"
+            "key": "config/ssl/passless.key",
+            "cert": "config/ssl/public.crt"
         }
     ]
 }
