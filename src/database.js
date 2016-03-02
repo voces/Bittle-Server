@@ -87,6 +87,34 @@ class MongoDB {
 
     }
 
+    userCreate(name, password, salt, email) {}
+    userGet(name) {}
+    userSetPassword(name, password, salt) {}
+    userSetEmail(name, email) {}
+
+    repoCreate(name, parent) {}
+    repoGet(name) {}
+    // repoDelete(name) {}
+
+    permSet(user, repo, permission) {}
+    permGet(user, repo) {}
+    permRemove(user, repo) {}
+
+    dirCreate(repo, parent, name) {}
+    dirGet(repo, parent, name) {}
+    dirDelete(repo, parent, name) {}
+
+    fileCreate(directory, name) {}
+    fileMove(oldDirectory, name, newDirectory) {}
+    fileDelete(directory, name) {}
+    fileGet(directory, name) {}
+
+    fileGetLines(directory, name) {}
+
+    lineSet(file, lineId, value) {}
+    lineGet(file, lineId) {}
+    lineRemove(file, lineId) {}
+
 }
 
 //Force a singleton database
@@ -110,7 +138,42 @@ module.exports = () => {
 
             }
 
-        }
+        },
+
+        //Key is name
+        userCreate: db.userCreate,
+        userGet: db.userGet,
+        userSetPassword: db.userSetPassword,
+        userSetEmail: db.userSetEmail,
+
+        //Key is name
+        repoCreate: db.repoCreate,
+        repoGet: db.repoGet,
+        // repoDelete: db.repoDelete,
+
+        //Key is {user, repo}
+        permSet: db.permSet,
+        permGet: db.permGet,
+        permRemove: db.permRemove,
+
+        //Key is {repo, parent, name}
+        dirCreate: db.dirCreate,
+        dirGet: db.dirGet,
+        dirDelete: db.dirDelete,
+
+        //Key is {directory, name}
+        fileCreate: db.fileCreate,
+        fileMove: db.fileMove,
+        fileDelete: db.fileDelete,
+        fileGet: db.fileGet,
+
+        fileGetLines: db.fileGetLines,
+
+        //Key is {file, lineId}
+        lineSet: db.lineSet,
+        lineGet: db.lineGet,
+        lineRemove: db.lineRemove
+
     };
 
 }();
