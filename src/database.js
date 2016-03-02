@@ -138,41 +138,7 @@ module.exports = () => {
 
             }
 
-        },
-
-        //Key is name
-        userCreate: db.userCreate,
-        userGet: db.userGet,
-        userSetPassword: db.userSetPassword,
-        userSetEmail: db.userSetEmail,
-
-        //Key is name
-        repoCreate: db.repoCreate,
-        repoGet: db.repoGet,
-        // repoDelete: db.repoDelete,
-
-        //Key is {user, repo}
-        permSet: db.permSet,
-        permGet: db.permGet,
-        permRemove: db.permRemove,
-
-        //Key is {repo, parent, name}
-        dirCreate: db.dirCreate,
-        dirGet: db.dirGet,
-        dirDelete: db.dirDelete,
-
-        //Key is {directory, name}
-        fileCreate: db.fileCreate,
-        fileMove: db.fileMove,
-        fileDelete: db.fileDelete,
-        fileGet: db.fileGet,
-
-        fileGetLines: db.fileGetLines,
-
-        //Key is {file, lineId}
-        lineSet: db.lineSet,
-        lineGet: db.lineGet,
-        lineRemove: db.lineRemove
+        }
 
     };
 
