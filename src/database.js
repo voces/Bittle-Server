@@ -98,7 +98,7 @@ class MongoDB {
 
     permSet(user, repo, permission) {}
     permGet(user, repo) {}
-    permRemove(user, repo) {}
+    permDelete(user, repo) {}
 
     dirCreate(repo, parent, name) {}
     dirGet(repo, parent, name) {}
@@ -109,37 +109,146 @@ class MongoDB {
     fileDelete(directory, name) {}
     fileGet(directory, name) {}
 
-    fileGetLines(directory, name) {}
-
     lineSet(file, lineId, value) {}
     lineGet(file, lineId) {}
     lineRemove(file, lineId) {}
 
 }
 
-//Force a singleton database
-module.exports = () => {
+class Database {
 
-    let db;
+    constructor() {
 
-    return {
+        this.db = false;
 
-        start: config => {
+    }
 
-            //Only allow one database
-            if (typeof db !== "undefined") return;
+    start(config) {
 
-            //Could theoretically route different databases, but we're just programming for MongoDB
-            switch (config.type) {
+        //Only allow one database
+        if (this.db) return;
 
-                case "mongodb":
-                    db = new MongoDB(config);
-                    break;
+        //Could theoretically route different databases, but we're just programming for MongoDB
+        switch (config.type) {
 
-            }
+            case "mongodb":
+                this.db = new MongoDB(config);
+                break;
 
         }
 
-    };
+    }
 
-}();
+    /******************************************************
+     ** User
+     ******************************************************/
+
+    userCreate(name, password, salt, email) {
+    	return db.userCreate(name, password, salt, email);
+    }
+
+    //Returns all vital stats and all repositories they have access to and their permission level
+    userGet(name) {
+    	return db.userGet(name);
+    }
+
+    userSetPassword(name, password, salt) {
+    	return db.userSetPassword(name, password, salt);
+    }
+
+    userSetEmail(name, email) {
+    	return db.userSetEmail(name, email);
+    }
+
+    /******************************************************
+     ** Repository
+     ******************************************************/
+
+    repoCreate(name, parent) {
+    	return db.repoCreate(name, parent);
+    }
+
+    //Returns vital stats and all directories and files contained; does not return a list of permissions
+    repoGet(name) {
+    	return db.repoGet(name);
+    }
+
+    //Returns users' names and their permissions
+    repoGetPerms(name) {
+    	return db.repoGet(name);
+    }
+
+    /******************************************************
+     ** Permission
+     ******************************************************/
+
+    permSet(user, repo, permission) {
+    	return db.permSet(user, repo, permission);
+    }
+
+    permGet(user, repo) {
+    	return db.permGet(user, repo);
+    }
+
+    permDelete(user, repo) {
+    	return db.permDelete(user, repo);
+    }
+
+    /******************************************************
+     ** Directory
+     ******************************************************/
+
+    dirCreate(repo, parent, name) {
+    	return db.dirCreate(repo, parent, name);
+    }
+
+    //Returns vital stats and all directories and files contained
+    dirGet(repo, parent, name) {
+    	return db.dirGet(repo, parent, name);
+    }
+
+    dirDelete(repo, parent, name) {
+    	return db.dirDelete(repo, parent, name);
+    }
+
+    /******************************************************
+     ** File
+     ******************************************************/
+
+    fileCreate(directory, name) {
+    	return db.fileCreate(directory, name);
+    }
+
+    fileMove(oldDirectory, name, newDirectory) {
+    	return db.fileMove(oldDirectory, name, newDirectory);
+    }
+
+    fileDelete(directory, name) {
+    	return db.fileDelete(directory, name);
+    }
+
+    //Returns vital stats and the file contents
+    fileGet(directory, name) {
+    	return db.fileGet(directory, name);
+    }
+
+    /******************************************************
+     ** Line
+     ******************************************************/
+
+    lineSet(file, lineId, value) {
+    	return db.lineSet(file, lineId, value);
+    }
+
+    lineGet(file, lineId) {
+    	return db.lineGet(file, lineId);
+    }
+
+    lineRemove(file, lineId) {
+    	return db.lineRemove(file, lineId);
+    }
+
+}
+
+//Force a singleton database
+module.exports = new Database();
