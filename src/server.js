@@ -17,7 +17,7 @@ class WSS extends EventEmitter {
 
         this.config = config;
 
-        console.log(`Loading https keys`);
+        // console.log(`Loading https keys`);
 
         //Load the keys in parallel
         async.parallel({
@@ -33,9 +33,9 @@ class WSS extends EventEmitter {
 
             }
 
-            console.log("Loaded https keys");
+            // console.log("Loaded https keys");
 
-            console.log(`Starting https/wss server on port '${config.port}'`)
+            // console.log(`Starting https/wss server on port '${config.port}'`)
 
             //Spawn an HTTPS server
             this.https = https.createServer({
@@ -65,15 +65,21 @@ class WSS extends EventEmitter {
 
             });
 
+            console.log(`Started wss server on port '${config.port}'`)
+
+            this.emit("start", config);
+
         });
 
     }
 
 }
 
-class Server {
+class Server extends EventEmitter {
 
     constructor() {
+
+        super();
 
         //The general Server class can take in clients form sub-servers (like
         //  WebSockets)
@@ -89,6 +95,8 @@ class Server {
 
         //Only event we care about from a sub-server
         server.on("connection", socket => this.clients.push(new Client(socket)));
+
+        server.on("start", e => this.emit("wsstart", e));
 
     }
 

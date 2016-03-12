@@ -10,6 +10,7 @@ require("console-stamp")(console, {
 });
 
 const deepFreeze = require("deep-freeze-strict"),
+    // repl = require("repl"),
 
     db = require("./src/database"),
     server = require("./src/server");
@@ -26,4 +27,16 @@ require("./src/config")(config => {
     //Start listening for connections
     server.start(config.server);
 
+    // db.on("processError", e => eventLayer("dbProcessError", e));
+    // db.on("connectError", e => eventLayer("dbConnectError", e));
+    // db.on("ready", e => eventLayer("dbReady", e));
+
+    //Drop into REPL
+    // repl.start("> ");
+
 });
+
+module.exports = {
+    db: db,
+    server: server
+}

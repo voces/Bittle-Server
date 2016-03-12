@@ -2,6 +2,7 @@
 "use strict";
 
 const EventEmitter = require("events"),
+    colors = require("colors"),
 
     //A list of all events
     EVENTS = {
@@ -37,23 +38,63 @@ class Request extends EventEmitter {
 
             //Handle PREAUTH events here
 
-            this.finish({
-                id: "onReject",
-                reason: "Bad auth ID.",
-                data: this.json
-            });
+            switch (this.json.id) {
+
+                case "register": this.enforceParamsAndCall({name: "string", pass: "string"}, this.client.register); break;
+                case "login": this.enforceParamsAndCall({name: "string", pass: "string"}, this.client.login); break;
+                case "changePass": this.enforceParamsAndCall({name: "string", pass: "string", newPass: "string"}, this.client.changePassAuth); break;
+                case "changeEmail": this.enforceParamsAndCall({name: "string", pass: "string", newEmail: "string"}, this.client.changeEmailAuth); break;
+                case "resetPass": this.enforceParamsAndCall({name: "string"}, this.client.resetPass); break;
+                default: this.fail({reason: "Request ID is not valid or is not allowed before logging in.", data: this.json}); break;
+
+            }
 
         } else {
 
             //Handle all other events here
 
-            this.finish({
-                id: "onReject",
-                reason: "Bad ID.",
-                data: this.json
-            });
+            this.finish({id: "onReject", reason: "Bad ID.", data: this.json});
 
         }
+
+    }
+
+    enforceParamsAndCall(paramTypes, callback) {
+
+        let params = [this];
+
+        for (let param in paramTypes)
+            if (typeof this.json[param] === "undefined") {
+                this.fail({reason: `Missing parameter ${param}.`});
+                return;
+            } else if (typeof this.json[param] !== paramTypes[param]) {
+                this.fail({reason: `Mistyped parameter ${param}. Should be type ${paramTypes[param]}.`});
+                return;
+            } else params.push(this.json[param]);
+
+        try {
+
+            callback(...params);
+
+        } catch (err) {
+
+            this.error("Undefined callback", this.json.id);
+            this.fail({reason: "Server error: undefined callback."});
+            return;
+
+        }
+
+    }
+
+    fail(json) {
+
+        this.status = "failed";
+
+        json.data = this.json;
+
+        this.send(json);
+
+        this.emit("fail", this);
 
     }
 
@@ -76,10 +117,18 @@ class Request extends EventEmitter {
 
         json.status = this.status;
 
+        if (typeof json.id !== "string") json.id = this.json.id;
+
         if (this.part > 0) json.part = ++this.part;
         else this.part++;
 
         this.client.send(json);
+
+    }
+
+    error() {
+
+        this.client.error(...[colors.red(`[${this.json.id}]`), ...arguments]);
 
     }
 

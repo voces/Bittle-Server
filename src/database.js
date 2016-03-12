@@ -1,9 +1,15 @@
 
 "use strict";
 
-class MongoDB {
+const EventEmitter = require("events"),
+    spawn = require("child_process").spawn,
+    MongoClient = require('mongodb').MongoClient;
+
+class MongoDB extends EventEmitter {
 
     constructor(config) {
+
+        super();
 
         this.config = config;
 
@@ -11,9 +17,7 @@ class MongoDB {
          *  Spawn a mongodb process, store it at this.process
          */
 
-        console.log(`Running 'mongod${(config.args ? " " + config.args : "")}'`);
-
-        const spawn = require("child_process").spawn;
+        // console.log(`Running 'mongod${(config.args ? " " + config.args : "")}'`);
 
         //Run mongodb and pass any arguments
         this.process = spawn("mongod", config.args.split(" "));
@@ -35,7 +39,7 @@ class MongoDB {
             //Grab that port
             this.port = data.slice(data.indexOf("port") + 5).split(/\D/)[0];
 
-            console.log(`Found mongod on port '${this.port}'`);
+            // console.log(`Found mongod on port '${this.port}'`);
 
             //Theoretically disable this listener, but this is not how you do it
             //  TODO: fix me
@@ -49,6 +53,7 @@ class MongoDB {
     }
 
     processErr(data) {
+        this.emit("processError", data);
         console.error("mongoErr", data.toString());
     }
 
@@ -61,12 +66,10 @@ class MongoDB {
          *  Connect to mongodb
          */
 
-         //Build up the address of the database
-         this.url = `mongodb://localhost:${this.port}/${this.config.database}`;
+        //Build up the address of the database
+        this.url = `mongodb://localhost:${this.port}/${this.config.database}`;
 
-         console.log(`Connecting to mongod at '${this.url}'`);
-
-        const MongoClient = require('mongodb').MongoClient;
+        // console.log(`Connecting to mongod at '${this.url}'`);
 
         //Connect to it
         MongoClient.connect(this.url, (err, db) => {
@@ -74,6 +77,8 @@ class MongoDB {
             //If any errors occur, kill the server and database processes
             if (err) {
 
+                this.emit("connectError", {config: this.config, url: this.url});
+                // return;
                 console.error(`Error connecting to mongodb at '${this.url}', exiting`)
                 process.exit(1);
 
@@ -82,32 +87,61 @@ class MongoDB {
             console.log(`Connected to mongod at '${this.url}'`);
 
             this.db = db;
+            this.user = db.collection('mongoclient_test');
+
+            this.emit("ready", {config: this.config, url: this.url});
 
         })
 
     }
 
-    userCreate(name, password, salt, email) {}
+    /******************************************************
+     ** User
+     ******************************************************/
+
+    userCreate(name, password, salt, email) {
+        let user = this.user.find({name: name});
+    }
     userGet(name) {}
     userSetPassword(name, password, salt) {}
     userSetEmail(name, email) {}
+
+    /******************************************************
+     ** Repository
+     ******************************************************/
 
     repoCreate(name, parent) {}
     repoGet(name) {}
     // repoDelete(name) {}
 
+    /******************************************************
+     ** Permission
+     ******************************************************/
+
     permSet(user, repo, permission) {}
     permGet(user, repo) {}
     permDelete(user, repo) {}
+
+    /******************************************************
+     ** Directory
+     ******************************************************/
 
     dirCreate(repo, parent, name) {}
     dirGet(repo, parent, name) {}
     dirDelete(repo, parent, name) {}
 
+    /******************************************************
+     ** File
+     ******************************************************/
+
     fileCreate(directory, name) {}
     fileMove(oldDirectory, name, newDirectory) {}
     fileDelete(directory, name) {}
     fileGet(directory, name) {}
+
+    /******************************************************
+     ** Line
+     ******************************************************/
 
     lineSet(file, lineId, value) {}
     lineGet(file, lineId) {}
@@ -115,11 +149,21 @@ class MongoDB {
 
 }
 
-class Database {
+class Database extends EventEmitter {
 
     constructor() {
 
+        super();
+
         this.db = false;
+
+    }
+
+    initializeHooks() {
+
+        this.db.on("processError", e => this.emit("processError", e));
+        this.db.on("connectError", e => this.emit("connectError", e));
+        this.db.on("ready", e => this.emit("ready", e));
 
     }
 
@@ -136,6 +180,8 @@ class Database {
                 break;
 
         }
+
+        this.initializeHooks();
 
     }
 

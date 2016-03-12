@@ -40,31 +40,11 @@ class Client extends EventEmitter {
 
     }
 
-    //Decorate log events with a stamp of the client
-    log() {
-
-        console.log(...[colors.green(`[${this.name}]`), ...arguments]);
-
-    }
-
-    //Set all out-going communications with the time
-    send(json) {
-
-        json.time = Date.now();
-
-        let s = JSON.stringify(json);
-
-        this.log("[SEND]", s);
-
-        this.socket.send(s);
-
-    }
-
-    onClose(code, message) {
-
-        console.log("onClose", code, message);
-
-    }
+    register(request, name, pass) {request.finish();}
+    login(request, name, pass) {request.finish();}
+    changePassAuth(request, name, pass, newPass) {request.finish();}
+    changeEmailAuth(request, name, pass, newEmail) {request.finish();}
+    resetPass(request, name) {request.finish();}
 
     //A factory-like way of handling requests, since a client must queue them
     newRequest(json) {
@@ -86,10 +66,22 @@ class Client extends EventEmitter {
 
         //Bind a finish listener first
         request.on("finish", this.finishRequest.bind(this));
+        request.on("fail", this.failRequest.bind(this));
 
         //If the request queue was empty, start processing!
         if (this.requestQueue.push(request) === 1)
             request.process();
+
+    }
+
+    failRequest() {
+
+        //TODO: Abort a transaction when implemented
+
+        this.requestQueue.shift();
+
+        //If there is still something in the queue, process it
+        if (this.requestQueue.length) this.requestQueue[0].process();
 
     }
 
@@ -111,33 +103,74 @@ class Client extends EventEmitter {
 
         let json;
 
-        try {
+        try {json = JSON.parse(data);}
+        catch (err) {return this.send({id: "onReject", reason: "Invalid JSON.", data: data})};
 
-            json = JSON.parse(data);
+        if (typeof json !== "object" || json instanceof Array) return this.send({id: "onReject", reason: "JSON is not an object.", data: data});
+        if (typeof json.id === "undefined") return this.send({id: "onReject", reason: "ID is not defined.", data: data});
+        if (typeof json.id !== "string") return this.send({id: "onReject", reason: "ID is not a string.", data: data});
+        if (json.id === "") return this.send({id: "onReject", reason: "ID is an empty string.", data: data});
 
-        } catch (err) {
-
-            this.send({
-                id: "onReject",
-                reason: "Invalid JSON.",
-                data: data
-            });
-
-            return;
-
-        }
-
-        if (typeof json !== "object") console.error("Can this happen?");
+        this.newRequest(json);
 
         //Push individual events into a queue
-        if (json instanceof Array) for (let i = 0; i < json.length; i++) this.newRequest(json[i]);
-        else this.newRequest(json);
+        // if (json instanceof Array)
+        //
+        //     for (let i = 0; i < json.length; i++)
+        //
+        //         if (typeof json[i] === "object") this.newRequest(json[i]);
+        //         else {
+        //
+        //             this.send({
+        //                 id: "onReject",
+        //                 reason: "SubRequest is not an object.",
+        //                 data: json[i]
+        //             });
+        //
+        //             return;
+        //
+        //         }
+        //
+        // else this.newRequest(json);
+
+    }
+
+    onClose(code, message) {
+
+        this.log("Connection closed");
 
     }
 
     onError(error) {
 
-        console.log("onError", error);
+        this.log("onError", error);
+
+    }
+
+    //Set all out-going communications with the time
+    send(json) {
+
+        json.time = Date.now();
+
+        let s = JSON.stringify(json);
+
+        this.log("[SEND]", s);
+
+        this.socket.send(s);
+
+    }
+
+    //Decorate log events with a stamp of the client
+    log() {
+
+        console.log(...[colors.green(`[${this.name}]`), ...arguments]);
+
+    }
+
+    //Decorate error events with a stamp of the client
+    error() {
+
+        console.error(...[colors.green(`[${this.name}]`), ...arguments]);
 
     }
 

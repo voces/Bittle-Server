@@ -13,7 +13,7 @@ module.exports = (filePath, callback) => {
 
     }
 
-    console.log(`Loading config file '${filePath}'`);
+    // console.log(`Loading config file '${filePath}'`);
 
     fs.readFile(filePath, (err, data) => {
 
@@ -27,6 +27,8 @@ module.exports = (filePath, callback) => {
         try {
 
             data = JSON.parse(data.toString());
+
+            console.log(`Loaded config file '${filePath}'`);
 
         } catch (e) {
 
