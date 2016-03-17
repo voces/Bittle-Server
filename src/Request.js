@@ -40,8 +40,8 @@ class Request extends EventEmitter {
 
             switch (this.json.id) {
 
-                case "register": this.enforceParamsAndCall({name: "string", pass: "string"}, this.client.register); break;
-                case "login": this.enforceParamsAndCall({name: "string", pass: "string"}, this.client.login); break;
+                case "register": this.enforceParamsAndCall({name: "string", pass: "string"}, this.client.register.bind(this.client)); break;
+                case "login": this.enforceParamsAndCall({name: "string", pass: "string"}, this.client.login.bind(this.client)); break;
                 case "changePass": this.enforceParamsAndCall({name: "string", pass: "string", newPass: "string"}, this.client.changePassAuth); break;
                 case "changeEmail": this.enforceParamsAndCall({name: "string", pass: "string", newEmail: "string"}, this.client.changeEmailAuth); break;
                 case "resetPass": this.enforceParamsAndCall({name: "string"}, this.client.resetPass); break;
@@ -61,7 +61,7 @@ class Request extends EventEmitter {
 
     enforceParamsAndCall(paramTypes, callback) {
 
-        let params = [this];
+        let params = [];
 
         for (let param in paramTypes)
             if (typeof this.json[param] === "undefined") {
@@ -72,23 +72,28 @@ class Request extends EventEmitter {
                 return;
             } else params.push(this.json[param]);
 
-        try {
+        // try {
 
-            callback(...params);
+            callback(this, ...params);
 
-        } catch (err) {
-
-            this.error("Undefined callback", this.json.id);
-            this.fail({reason: "Server error: undefined callback."});
-            return;
-
-        }
+        // } catch (err) {
+        //
+        //     this.error(err);
+        //
+        //     this.error("Undefined callback", this.json.id);
+        //     this.fail({reason: "Server error: undefined callback."});
+        //     return;
+        //
+        // }
 
     }
 
     fail(json) {
 
         this.status = "failed";
+
+        if (typeof json === "string")
+            json = {reason: json};
 
         json.data = this.json;
 

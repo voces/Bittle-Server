@@ -91,6 +91,8 @@ class MongoDB extends EventEmitter {
 
             this.emit("ready", {config: this.config, url: this.url});
 
+            this.user.remove({name: /^deleteMe/});
+
         })
 
     }
@@ -99,11 +101,19 @@ class MongoDB extends EventEmitter {
      ** User
      ******************************************************/
 
-    userCreate(name, password, salt, email) {
-        let user = this.user.find({name: name});
+    userCreate(name, pass, email) {
+        return this.user.insertOne({
+            name: name,
+            pass: pass,
+            email: email
+        });
     }
-    userGet(name) {}
-    userSetPassword(name, password, salt) {}
+
+    userGet(name) {
+        return this.user.find({name: name}).toArray();
+    }
+
+    userSetpass(name, pass) {}
     userSetEmail(name, email) {}
 
     /******************************************************
@@ -189,21 +199,21 @@ class Database extends EventEmitter {
      ** User
      ******************************************************/
 
-    userCreate(name, password, salt, email) {
-    	return db.userCreate(name, password, salt, email);
+    userCreate(name, pass, email) {
+    	return this.db.userCreate(name, pass, email);
     }
 
     //Returns all vital stats and all repositories they have access to and their permission level
     userGet(name) {
-    	return db.userGet(name);
+    	return this.db.userGet(name);
     }
 
-    userSetPassword(name, password, salt) {
-    	return db.userSetPassword(name, password, salt);
+    userSetpass(name, pass) {
+    	return this.db.userSetpass(name, pass);
     }
 
     userSetEmail(name, email) {
-    	return db.userSetEmail(name, email);
+    	return this.db.userSetEmail(name, email);
     }
 
     /******************************************************
@@ -211,17 +221,17 @@ class Database extends EventEmitter {
      ******************************************************/
 
     repoCreate(name, parent) {
-    	return db.repoCreate(name, parent);
+    	return this.db.repoCreate(name, parent);
     }
 
     //Returns vital stats and all directories and files contained; does not return a list of permissions
     repoGet(name) {
-    	return db.repoGet(name);
+    	return this.db.repoGet(name);
     }
 
     //Returns users' names and their permissions
     repoGetPerms(name) {
-    	return db.repoGet(name);
+    	return this.db.repoGet(name);
     }
 
     /******************************************************
@@ -229,15 +239,15 @@ class Database extends EventEmitter {
      ******************************************************/
 
     permSet(user, repo, permission) {
-    	return db.permSet(user, repo, permission);
+    	return this.db.permSet(user, repo, permission);
     }
 
     permGet(user, repo) {
-    	return db.permGet(user, repo);
+    	return this.db.permGet(user, repo);
     }
 
     permDelete(user, repo) {
-    	return db.permDelete(user, repo);
+    	return this.db.permDelete(user, repo);
     }
 
     /******************************************************
@@ -245,16 +255,16 @@ class Database extends EventEmitter {
      ******************************************************/
 
     dirCreate(repo, parent, name) {
-    	return db.dirCreate(repo, parent, name);
+    	return this.db.dirCreate(repo, parent, name);
     }
 
     //Returns vital stats and all directories and files contained
     dirGet(repo, parent, name) {
-    	return db.dirGet(repo, parent, name);
+    	return this.db.dirGet(repo, parent, name);
     }
 
     dirDelete(repo, parent, name) {
-    	return db.dirDelete(repo, parent, name);
+    	return this.db.dirDelete(repo, parent, name);
     }
 
     /******************************************************
@@ -262,20 +272,20 @@ class Database extends EventEmitter {
      ******************************************************/
 
     fileCreate(directory, name) {
-    	return db.fileCreate(directory, name);
+    	return this.db.fileCreate(directory, name);
     }
 
     fileMove(oldDirectory, name, newDirectory) {
-    	return db.fileMove(oldDirectory, name, newDirectory);
+    	return this.db.fileMove(oldDirectory, name, newDirectory);
     }
 
     fileDelete(directory, name) {
-    	return db.fileDelete(directory, name);
+    	return this.db.fileDelete(directory, name);
     }
 
     //Returns vital stats and the file contents
     fileGet(directory, name) {
-    	return db.fileGet(directory, name);
+    	return this.db.fileGet(directory, name);
     }
 
     /******************************************************
@@ -283,15 +293,15 @@ class Database extends EventEmitter {
      ******************************************************/
 
     lineSet(file, lineId, value) {
-    	return db.lineSet(file, lineId, value);
+    	return this.db.lineSet(file, lineId, value);
     }
 
     lineGet(file, lineId) {
-    	return db.lineGet(file, lineId);
+    	return this.db.lineGet(file, lineId);
     }
 
     lineRemove(file, lineId) {
-    	return db.lineRemove(file, lineId);
+    	return this.db.lineRemove(file, lineId);
     }
 
 }

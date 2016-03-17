@@ -3,16 +3,18 @@
 
 const EventEmitter = require("events"),
     colors = require("colors"),
+    bcrypt = require("bcryptjs"),
 
     Request = require("./Request");
 
 class Client extends EventEmitter {
 
     //Bind some events and set defaults
-    constructor(socket) {
+    constructor(server, socket) {
 
         super();
 
+        this.server = server;
         this.socket = socket;
 
         socket.on("close", this.onClose.bind(this));
@@ -40,11 +42,96 @@ class Client extends EventEmitter {
 
     }
 
-    register(request, name, pass) {request.finish();}
-    login(request, name, pass) {request.finish();}
-    changePassAuth(request, name, pass, newPass) {request.finish();}
-    changeEmailAuth(request, name, pass, newEmail) {request.finish();}
-    resetPass(request, name) {request.finish();}
+    register(request, name, pass) {
+
+        Promise.all([
+
+            this.server.db.userGet(name),
+            this.saltPass(name, pass)
+
+        ]).then(result => {
+
+            let users = result[0],
+                hash = result[1];
+
+            if (users.length) {
+                request.fail("Name is already taken.");
+                return;
+            }
+
+            this.server.db.userCreate(name, hash, request.json.email).then(
+                result => request.finish(),
+                error => {this.error(error); request.fail("Unable write to database.");}
+            );
+
+        }, error => {this.error(error); request.fail("Unable to query database.");});
+
+    }
+
+    login(request, name, pass) {
+
+        this.server.db.userGet(name).then(users => {
+
+            if (users.length === 0) {
+
+                request.fail("Account does not exist.");
+                return;
+
+            }
+
+            if (users.length > 1) {
+
+                this.error("Duplicate users?", name, users);
+                request.fail("Duplicate users found.");
+                return;
+
+            }
+
+            this.comparePass(name, pass, users[0].pass).then(matched => {
+
+                if (matched) request.finish();
+                else request.fail("Incorrect pass.");
+
+            }, error => {this.error(error); request.fail("Unable to query database.");});
+        }, error => {this.error(error); request.fail("Unable to query database.");});
+
+    }
+
+    changePassAuth(request, name, pass, newPass) {request.fail("Feature not yet coded.");}
+    changeEmailAuth(request, name, pass, newEmail) {request.fail("Feature not yet coded.");}
+    resetPass(request, name) {request.fail("Feature not yet coded.");}
+
+    saltPass(name, pass) {
+
+        return new Promise((resolve, reject) => {
+
+            bcrypt.genSalt(10, (err, salt) => {
+                bcrypt.hash(`B1tt1e${name.substr(0, 5)}${pass}`, salt, (err, hash) => {
+
+                    if (err) reject(err);
+                    else resolve(hash);
+
+                });
+            });
+
+        });
+
+    }
+
+    comparePass(name, pass, hash) {
+
+        return new Promise((resolve, reject) => {
+
+            bcrypt.compare(`B1tt1e${name.substr(0, 5)}${pass}`, hash, (err, res) => {
+
+                if (err) reject(err);
+                else resolve(res);
+
+            });
+
+        });
+
+    }
 
     //A factory-like way of handling requests, since a client must queue them
     newRequest(json) {
@@ -99,7 +186,8 @@ class Client extends EventEmitter {
 
         data = data.toString();
 
-        this.log("[RECV]", data);
+        if (data.indexOf("pass") >= 0) this.log("[RECV]", data.substr(0, data.indexOf("pass") + 6), "[REDACTED]");
+        else this.log("[RECV]", data);
 
         let json;
 

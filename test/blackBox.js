@@ -54,30 +54,33 @@ function newTest(message, action, callback) {
 let tester = new Tester([
 
     //Basic request enforcement
-    ["hi", {id: "onReject", reason: "Invalid JSON."}],
-    [12, {id: "onReject", reason: "JSON is not an object."}],
-    ['"hi"', {id: "onReject", reason: "JSON is not an object."}],
-    [true, {id: "onReject", reason: "JSON is not an object."}],
-    [false, {id: "onReject", reason: "JSON is not an object."}],
-    [[], {id: "onReject", reason: "JSON is not an object."}],
-    ["{}", {id: "onReject", reason: "ID is not defined."}],
-    [{}, {id: "onReject", reason: "ID is not defined."}],
-    [{id: 7}, {id: "onReject", reason: "ID is not a string."}],
-    [{id: ""}, {id: "onReject", reason: "ID is an empty string."}],
+    // ["hi", {id: "onReject", reason: "Invalid JSON."}],
+    // [12, {id: "onReject", reason: "JSON is not an object."}],
+    // ['"hi"', {id: "onReject", reason: "JSON is not an object."}],
+    // [true, {id: "onReject", reason: "JSON is not an object."}],
+    // [false, {id: "onReject", reason: "JSON is not an object."}],
+    // [[], {id: "onReject", reason: "JSON is not an object."}],
+    // ["{}", {id: "onReject", reason: "ID is not defined."}],
+    // [{}, {id: "onReject", reason: "ID is not defined."}],
+    // [{id: 7}, {id: "onReject", reason: "ID is not a string."}],
+    // [{id: ""}, {id: "onReject", reason: "ID is an empty string."}],
 
     //Invalid request due to not being authorized
-    [{id: "potato"}, {id: "potato", status: "failed", reason: "Request ID is not valid or is not allowed before logging in."}],
+    // [{id: "potato"}, {id: "potato", status: "failed", reason: "Request ID is not valid or is not allowed before logging in."}],
 
     //Testing of parameters
-    [{id: "register"}, {id: "register", status: "failed", reason: "Missing parameter name."}],
-    [{id: "register", name: 15}, {id: "register", status: "failed", reason: "Mistyped parameter name. Should be type string."}],
+    // [{id: "register"}, {id: "register", status: "failed", reason: "Missing parameter name."}],
+    // [{id: "register", name: 15}, {id: "register", status: "failed", reason: "Mistyped parameter name. Should be type string."}],
 
     //Testing of unimplemented things/tests (may want to flesh this out first?)
-    [{id: "register", name: "coer", pass: "passphrase"}, {id: "register", status: "closed"}],
-    [{id: "login", name: "coer", pass: "passphrase"}, {id: "login", status: "closed"}],
-    [{id: "changePass", name: "coer", pass: "passphrase", newPass: "newPass"}, {id: "changePass", status: "closed"}],
-    [{id: "changeEmail", name: "coer", pass: "passphrase", newEmail: "newEmail"}, {id: "changeEmail", status: "closed"}],
-    [{id: "resetPass", name: "coer"}, {id: "resetPass", status: "closed"}]
+    [{id: "register", name: "deleteMe1", pass: "passphrase"}, {id: "register", status: "closed"}],
+    [{id: "register", name: "deleteMe1", pass: "passphrase"}, {id: "register", status: "failed", reason: "Name is already taken."}],
+    [{id: "login", name: "deleteMe1", pass: "badpass"}, {id: "login", status: "failed", reason: "Incorrect pass."}],
+    [{id: "login", name: "deleteMe1", pass: "passphrase"}, {id: "login", status: "closed"}],
+    [{id: "logout"}, {id: "logout", status: "closed"}],
+    // [{id: "changePass", name: "deleteMe1", pass: "passphrase", newPass: "newPass"}, {id: "changePass", status: "closed"}],
+    // [{id: "changeEmail", name: "deleteMe1", pass: "passphrase", newEmail: "newEmail"}, {id: "changeEmail", status: "closed"}],
+    // [{id: "resetPass", name: "deleteMe1"}, {id: "resetPass", status: "closed"}]
 
 ], {newTest: newTest});
 

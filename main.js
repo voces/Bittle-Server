@@ -25,11 +25,11 @@ require("./src/config")(config => {
     db.start(config.database);
 
     //Start listening for connections
-    server.start(config.server);
+    server.start(config.server, db);
 
     // db.on("processError", e => eventLayer("dbProcessError", e));
     // db.on("connectError", e => eventLayer("dbConnectError", e));
-    // db.on("ready", e => eventLayer("dbReady", e));
+    // db.on("ready", e => db.);
 
     //Drop into REPL
     // repl.start("> ");

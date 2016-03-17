@@ -87,6 +87,8 @@ class Server extends EventEmitter {
         this.servers = [];
         this.clients = [];
 
+        this.db = null;
+
     }
 
     addServer(server) {
@@ -94,7 +96,7 @@ class Server extends EventEmitter {
         this.servers.push(server);
 
         //Only event we care about from a sub-server
-        server.on("connection", socket => this.clients.push(new Client(socket)));
+        server.on("connection", socket => this.clients.push(new Client(this, socket)));
 
         server.on("start", e => this.emit("wsstart", e));
 
@@ -102,7 +104,9 @@ class Server extends EventEmitter {
 
     //A server can have a delayed start, but all sub-servers must be loaded at
     //  the same time
-    start(config) {
+    start(config, db) {
+
+        this.db = db;
 
         if (this.started) return;
         this.started = true;
