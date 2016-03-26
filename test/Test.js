@@ -3,11 +3,12 @@
 
 class Test {
 
-    constructor(message, action, callback) {
+    constructor(message, action, callback, silent) {
 
         this.message = message;
         this.action = action;
         this.callback = callback;
+        this.silent = silent;
 
     }
 

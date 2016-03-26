@@ -11,6 +11,8 @@ class Tester {
 
         this.timer = null;
 
+        this.timeout = 2000;
+
         for (let item in context)
             this[item] = context[item];
 
@@ -19,9 +21,9 @@ class Tester {
 
     }
 
-    newTest(message, action, callback) {
+    newTest() {
 
-        return new Test(message, action, callback);
+        return new Test(...arguments);
 
     }
 
@@ -33,18 +35,22 @@ class Tester {
 
     doNextTest() {
 
-        this.tests[0].output = document.createElement("div");
-        this.tests[0].output.innerHTML = this.tests[0].message;
+        if (!this.tests[0].silent) {
 
-        document.body.appendChild(this.tests[0].output);
+            this.tests[0].output = document.createElement("div");
+            this.tests[0].output.innerHTML = this.tests[0].message;
+
+            document.body.appendChild(this.tests[0].output);
+
+        }
 
         this.tests[0].action();
 
-        this.timer = setTimeout(this.timeout.bind(this), 3000);
+        this.timer = setTimeout(this.timeoutFunc.bind(this), 3000);
 
     }
 
-    timeout() {
+    timeoutFunc() {
 
         this.fail();
 
@@ -57,9 +63,10 @@ class Tester {
 
         let test = this.tests.splice(0, 1)[0];
 
-        test.output.innerHTML = "Fail --- " + test.output.innerHTML;
-
-        this.failed.push(test);
+        if (!test.silent) {
+            test.output.innerHTML = "Fail --- " + test.output.innerHTML;
+            this.failed.push(test);
+        }
 
     }
 
@@ -67,9 +74,10 @@ class Tester {
 
         let test = this.tests.splice(0, 1)[0];
 
-        test.output.innerHTML = "Pass --- " + test.output.innerHTML;
-
-        this.passed.push(test);
+        if (!test.silent) {
+            test.output.innerHTML = "Pass --- " + test.output.innerHTML;
+            this.passed.push(test);
+        }
 
     }
 
@@ -80,7 +88,7 @@ class Tester {
         let pass = this.tests[0].finish(event);
 
         if (pass === "more") {
-            this.timer = setTimeout(this.timeout.bind(this), 2000);
+            this.timer = setTimeout(this.timeoutFunc.bind(this), this.timeout);
             return;
         }
 

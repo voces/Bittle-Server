@@ -4,14 +4,7 @@
 const EventEmitter = require("events"),
     colors = require("colors"),
 
-    //A list of all events
-    EVENTS = {
-        PREAUTH: ["register", "login", "changePass", "changeEmail", "resetPass"],
-        POSTAUTH: ["changePass", "changeEmail", "resetPass", "logout"],
-        PERMISSION: ["addPermission", "addPermissionConfirm", "removePermission"],
-        REPO: ["createRepo", "deleteRepo", "mergeRepo"],
-        SYNC: ["create", "createDirectory", "insert", "erase", "split", "merge", "rename", "move"]
-    };
+    PERMISSIONS = ["owner", "manager", "contributor", "observer", "none"];
 
 class Request extends EventEmitter {
 
@@ -40,26 +33,74 @@ class Request extends EventEmitter {
 
             switch (this.json.id) {
 
-                case "register": this.enforceParamsAndCall({name: "string", pass: "string"}, this.client.register.bind(this.client)); break;
-                case "login": this.enforceParamsAndCall({name: "string", pass: "string"}, this.client.login.bind(this.client)); break;
-                case "changePass": this.enforceParamsAndCall({name: "string", pass: "string", newPass: "string"}, this.client.changePassAuth); break;
-                case "changeEmail": this.enforceParamsAndCall({name: "string", pass: "string", newEmail: "string"}, this.client.changeEmailAuth); break;
-                case "resetPass": this.enforceParamsAndCall({name: "string"}, this.client.resetPass); break;
-                default: this.fail({reason: "Request ID is not valid or is not allowed before logging in.", data: this.json}); break;
+                case "clean": this.client.server.db.clean(); this.finish(); break;
+
+                case "register": this.enforceParamsThenCall({name: "string", pass: "string"}, this.client.register.bind(this.client)); break;
+                case "login": this.enforceParamsThenCall({name: "string", pass: "string"}, this.client.login.bind(this.client)); break;
+
+                case "changePass": this.enforceParamsThenCall({name: "string", pass: "string", newPass: "string"}, this.client.changePassAuth.bind(this.client)); break;
+                case "changeEmail": this.enforceParamsThenCall({name: "string", pass: "string", newEmail: "string"}, this.client.changeEmailAuth.bind(this.client)); break;
+                case "resetPass": this.enforceParamsThenCall({name: "string"}, this.client.resetPass.bind(this.client)); break;
+
+                default: this.fail({reason: "Request ID is not valid or is not allowed before logging in.", data: this.json});
 
             }
 
         } else {
 
             //Handle all other events here
+            switch (this.json.id) {
 
-            this.finish({id: "onReject", reason: "Bad ID.", data: this.json});
+                //Misc
+                case "clean": this.client.server.db.clean(); this.finish(); break;
+
+                //Auth
+                case "logout": this.enforceParamsThenCall(null, this.client.logout.bind(this.client)); break;
+                case "changePass": this.enforceParamsThenCall({name: "string", pass: "string", newPass: "string"}, this.client.changePass.bind(this.client)); break;
+                case "changeEmail": this.enforceParamsThenCall({name: "string", pass: "string", newEmail: "string"}, this.client.changeEmail.bind(this.client)); break;
+
+                //Repo management
+                case "createRepo": this.enforceParamsThenCall({name: "string"}, this.client.createRepo.bind(this.client)); break;
+                case "deleteRepo": this.enforceParamsAndAccessThenCall({repo: "string"}, "owner", this.client.deleteRepo.bind(this.client)); break;
+                case "deleteRepoConfirm": this.enforceParamsThenCall({key: "number"}, this.client.deleteRepoConfirm.bind(this.client)); break;
+
+                //Permissions
+                case "setPermission": this.enforceParamsAndAccessThenCall({repo: "string", user: "string", role: "string"}, "manager",
+                                                                          this.client.addPermission.bind(this.client)); break;
+
+                //Files
+                case "createFile": this.enforceParamsAndAccessThenCall({repo: "string", file: "string"}, "contributor", this.client.createFile.bind(this.client)); break;
+                case "moveFile": this.enforceParamsAndAccessThenCall({repo: "string", file: "string", newPath: "string"}, "contributor",
+                                                                     this.client.moveFile.bind(this.client)); break;
+                case "deleteFile": this.enforceParamsAndAccessThenCall({repo: "string", file: "string"}, "contributor", this.client.deleteFile.bind(this.client)); break;
+
+                //Directories
+                case "createDirectory": this.enforceParamsAndAccessThenCall({repo: "string", directory: "string"}, "contributor",
+                                                                            this.client.createDirectory.bind(this.client)); break;
+                case "moveDirectory": this.enforceParamsAndAccessThenCall({repo: "string", directory: "string", newPath: "string"}, "contributor",
+                                                                          this.client.moveDirectory.bind(this.client)); break;
+                case "deleteDirectory": this.enforceParamsAndAccessThenCall({repo: "string", directory: "string"}, "contributor",
+                                                                            this.client.deleteDirectory.bind(this.client)); break;
+
+                //Lines
+                case "insert": this.enforceParamsAndAccessThenCall({repo: "string", file: "string", lineId: "string", col: "number", data: "string"}, "contributor",
+                                                                   this.client.lineInsert.bind(this.client)); break;
+                case "erase": this.enforceParamsAndAccessThenCall({repo: "string", file: "string", lineId: "string", col: "number", count: "number"}, "contributor",
+                                                                  this.client.lineErase.bind(this.client)); break;
+                case "split": this.enforceParamsAndAccessThenCall({repo: "string", file: "string", lineId: "string", col: "number", newLineId: "string"}, "contributor",
+                                                                  this.client.lineSplit.bind(this.client)); break;
+                case "merge": this.enforceParamsAndAccessThenCall({repo: "string", file: "string", lineId: "string"}, "contributor",
+                                                                  this.client.lineMerge.bind(this.client)); break;
+
+                default: this.finish({id: "onReject", reason: "Bad ID.", data: this.json});
+
+            }
 
         }
 
     }
 
-    enforceParamsAndCall(paramTypes, callback) {
+    enforceParams(paramTypes) {
 
         let params = [];
 
@@ -72,19 +113,41 @@ class Request extends EventEmitter {
                 return;
             } else params.push(this.json[param]);
 
-        // try {
+        return params;
 
-            callback(this, ...params);
+    }
 
-        // } catch (err) {
-        //
-        //     this.error(err);
-        //
-        //     this.error("Undefined callback", this.json.id);
-        //     this.fail({reason: "Server error: undefined callback."});
-        //     return;
-        //
-        // }
+    enforceParamsThenCall(paramTypes, callback) {
+
+        let params = this.enforceParams(paramTypes);
+
+        if (params)
+            callback(this, ...params).then(
+                result => this.finish(result),
+                error => this.fail(error)
+            ).catch(error => {this.error(error); this.fail("Server syntax error.");});
+
+    }
+
+    enforceParamsAndAccessThenCall(paramTypes, access, callback) {
+
+        let params = this.enforceParams(paramTypes);
+        if (!params) return;
+
+        this.client.server.db.permGet(this.client.name, this.json.repo).then(perm => {
+
+            // console.log(perm ? perm.permission : "none", access);
+
+            if (!perm || PERMISSIONS.indexOf(perm.permission) > PERMISSIONS.indexOf(access)) return this.fail("Not enough permission.");
+
+            this.access = perm.permission;
+
+            callback(this, ...params).then(
+                result => this.finish(result),
+                error => this.fail(error)
+            ).catch(error => {this.error(error); this.fail("Server syntax error.");});
+
+        }, error => this.fail(error));
 
     }
 
@@ -134,6 +197,12 @@ class Request extends EventEmitter {
     error() {
 
         this.client.error(...[colors.red(`[${this.json.id}]`), ...arguments]);
+
+    }
+
+    log() {
+
+        this.client.log(...[colors.yellow(`[${this.json.id}]`), ...arguments]);
 
     }
 

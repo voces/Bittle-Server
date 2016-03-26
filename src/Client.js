@@ -5,7 +5,10 @@ const EventEmitter = require("events"),
     colors = require("colors"),
     bcrypt = require("bcryptjs"),
 
-    Request = require("./Request");
+    Request = require("./Request"),
+    Key = require("./Key"),
+
+    PERMISSIONS = ["owner", "manager", "contributor", "observer", "none"];
 
 class Client extends EventEmitter {
 
@@ -31,84 +34,216 @@ class Client extends EventEmitter {
 
     }
 
-    //A general getter; will use a .user property once authentication is a go,
-    //  otherwise we just use the IP
-    get name() {
+    //A general getter
+    get tag() {
 
-        if (this.socket.family = "IPv6")
-            return `[${this.socket.ip}]:${this.socket.port}`;
+        if (this.authenticated) return this.name;
 
+        if (this.socket.family = "IPv6") return `[${this.socket.ip}]:${this.socket.port}`;
         return `${this.socket.ip}:${this.socket.port}`;
+
+    }
+
+    auth(name, pass) {
+
+        return new Promise((resolve, reject) => {
+
+            this.server.db.userGet(name).then(users => {
+
+                if (users.length === 0) {
+
+                    reject("Account does not exist.")
+                    return;
+
+                }
+
+                if (users.length > 1) {
+
+                    this.error("Duplicate users?", name, users);
+                    reject("Duplicate users found.");
+                    return;
+
+                }
+
+                this.comparePass(name, pass, users[0].pass).then(matched => {
+
+                    if (matched) resolve(users[0]);
+                    else reject("Incorrect pass.");
+
+                }, error => {this.error(error); reject("Unable to query database.");});
+            }, error => {this.error(error); reject("Unable to query database.");});
+
+        });
 
     }
 
     register(request, name, pass) {
 
-        Promise.all([
+        return new Promise((resolve, reject) => {
 
-            this.server.db.userGet(name),
-            this.saltPass(name, pass)
+            Promise.all([
 
-        ]).then(result => {
+                this.server.db.userGet(name),
+                this.saltPass(name, pass)
 
-            let users = result[0],
-                hash = result[1];
+            ]).then(result => {
 
-            if (users.length) {
-                request.fail("Name is already taken.");
-                return;
-            }
+                let users = result[0],
+                    hash = result[1];
 
-            this.server.db.userCreate(name, hash, request.json.email).then(
-                result => request.finish(),
-                error => {this.error(error); request.fail("Unable write to database.");}
-            );
+                if (users.length) {
+                    reject("Name is already taken.");
+                    return;
+                }
 
-        }, error => {this.error(error); request.fail("Unable to query database.");});
+                this.server.db.userCreate(name, hash, request.json.email).then(
+                    result => resolve(),
+                    error => {this.error(error); reject("Unable write to database.");}
+                );
+
+            }, error => {this.error(error); reject("Unable to query database.");});
+
+        });
 
     }
 
     login(request, name, pass) {
 
-        this.server.db.userGet(name).then(users => {
+        return new Promise((resolve, reject) => {
 
-            if (users.length === 0) {
+            this.auth(name, pass).then(user => {
 
-                request.fail("Account does not exist.");
-                return;
+                this.authenticated = true;
 
-            }
+                this.name = name;
+                this.originaName = user.name;
+                this.email = user.email;
 
-            if (users.length > 1) {
+                resolve();
 
-                this.error("Duplicate users?", name, users);
-                request.fail("Duplicate users found.");
-                return;
+            }, error => reject("Uncaught server error."));
 
-            }
-
-            this.comparePass(name, pass, users[0].pass).then(matched => {
-
-                if (matched) request.finish();
-                else request.fail("Incorrect pass.");
-
-            }, error => {this.error(error); request.fail("Unable to query database.");});
-        }, error => {this.error(error); request.fail("Unable to query database.");});
+        });
 
     }
 
-    changePassAuth(request, name, pass, newPass) {request.fail("Feature not yet coded.");}
-    changeEmailAuth(request, name, pass, newEmail) {request.fail("Feature not yet coded.");}
-    resetPass(request, name) {request.fail("Feature not yet coded.");}
+    logout(request) {
+
+        return new Promise((resolve, reject) => {
+
+            this.authenticated = false;
+
+            this.name = undefined;
+            this.originaName = undefined;
+            this.email = undefined;
+
+            resolve();
+
+        });
+
+    }
+
+    changePassAuth(request, name, pass, newPass) {
+
+        return new Promise((resolve, reject) => {
+
+            Promise.all([
+
+                this.auth(name, pass),
+                this.saltPass(name, newPass)
+
+            ]).then(result => {
+
+                let user = result[0],
+                    hash = result[1];
+
+                this.server.db.userSetPass(name, hash).then(
+                    result => resolve(),
+                    error => {this.error(error); reject("Unable to query database.");}
+                );
+
+            }, error => reject("Uncaught server error."));
+
+        });
+
+    }
+
+    changeEmailAuth(request, name, pass, newEmail) {
+
+        return new Promise((resolve, reject) => {
+
+            this.auth(name, pass).then(user => {
+
+                this.server.db.userSetEmail(name, newEmail).then(
+                    result => resolve(),
+                    error => {this.error(error); reject("Unable to query database.");}
+                );
+
+            }, error => reject("Uncaught server error."));
+
+        });
+
+    }
+
+    //This function requires a mailer of some sort
+    // Considering https://github.com/andris9/smtp-server
+    resetPass(request, name) {
+
+        return new Promise((resolve, reject) => {
+
+            // this.server.db.userGet(name).then(users => {
+            //
+            //     let user = users[0];
+            //
+            //     if (user.email) {
+            //
+            //     } else reject("Account has no email address.");
+            //
+            // });
+
+            reject("Feature not yet coded.");
+        });
+
+    }
+
+    changePass(request, name, pass, newPass) {
+
+        return new Promise((resolve, reject) => {
+
+            this.saltPass(name, newPass).then(hash => {
+
+                this.server.db.userSetPass(name, hash).then(
+                    result => resolve(),
+                    error => {this.error(error); reject("Unable to query database.");}
+                );
+
+            }, error => reject("Uncaught server error."));
+
+        });
+
+    }
+
+    changeEmail(request, name, pass, newEmail) {
+
+        return new Promise((resolve, reject) => {
+
+            this.server.db.userSetEmail(name, newEmail).then(
+                result => resolve(),
+                error => {this.error(error); reject("Unable to query database.");}
+            );
+
+        });
+
+    }
 
     saltPass(name, pass) {
 
         return new Promise((resolve, reject) => {
 
             bcrypt.genSalt(10, (err, salt) => {
-                bcrypt.hash(`B1tt1e${name.substr(0, 5)}${pass}`, salt, (err, hash) => {
+                bcrypt.hash(`B1tt1e${name.substr(0, 5).toLowerCase()}${pass}`, salt, (err, hash) => {
 
-                    if (err) reject(err);
+                    if (err) reject("Uncaught server error.");
                     else resolve(hash);
 
                 });
@@ -122,9 +257,9 @@ class Client extends EventEmitter {
 
         return new Promise((resolve, reject) => {
 
-            bcrypt.compare(`B1tt1e${name.substr(0, 5)}${pass}`, hash, (err, res) => {
+            bcrypt.compare(`B1tt1e${name.substr(0, 5).toLowerCase()}${pass}`, hash, (err, res) => {
 
-                if (err) reject(err);
+                if (err) reject("Uncaught server error.");
                 else resolve(res);
 
             });
@@ -132,6 +267,128 @@ class Client extends EventEmitter {
         });
 
     }
+
+    createRepo(request, name) {
+
+        return new Promise((resolve, reject) => {
+
+            this.server.db.repoGet(name).then(repo => {
+
+                if (repo) return reject("Name is already taken.");
+
+                Promise.all([
+
+                    this.server.db.repoCreate(name),
+                    this.server.db.permSet(this.name, name, "owner")
+
+                ]).then(
+
+                    result => resolve(),
+                    error => reject("Uncaught server error.")
+
+                );
+
+            }, error => {this.error(error); reject("Unable to query database.");});
+
+        });
+
+    }
+
+    deleteRepo(request, name) {
+
+        return new Promise((resolve, reject) => {
+
+            // reject("Feature not yet coded.");   //Because it's not done so in the DB...
+
+            this.activeKey = new Key(30000);
+            resolve({key: this.activeKey.id});
+
+        });
+
+    }
+
+    deleteRepoConfirm(request, key) {
+
+        return new Promise((resolve, reject) => {
+
+            if (this.activeKey && this.activeKey.id === key) {
+                if (this.activeKey.expired) return reject("Key has expired.");
+                return reject("Feature not yet coded.");
+            } else return reject("Key does not match.");
+
+        });
+
+    }
+
+    addPermission(request, repo, userName, role) {
+
+        return new Promise((resolve, reject) => {
+
+            if (PERMISSIONS.indexOf(role) < 0)
+                return reject("Role does not exist.");
+
+            if (PERMISSIONS.indexOf(role) < PERMISSIONS.indexOf(request.access))
+                return reject("Not enough permission.");
+
+            Promise.all([
+
+                this.server.db.userGet(userName),
+                this.server.db.permGet(userName, repo)
+
+            ]).then(result => {
+
+                let user = result[0][0],
+                    permRecord = result[1];
+
+                if (!user) return reject("User does not exist.");
+
+                if (permRecord && PERMISSIONS.indexOf(permRecord.permission) <= PERMISSIONS.indexOf(request.access))
+                    return reject("User has equal or greater permission.");
+
+                this.server.db.permSet(userName, repo, role).then(
+
+                    result => resolve(),
+                    error => reject("Uncaught server error.")
+
+                );
+
+            }, error => {this.error(error); reject("Uncaught server error.");});
+
+        });
+
+    }
+
+    createFile(request, repo, path) {
+
+        return new Promise((resolve, reject) => {
+
+            this.server.db.fileExists(repo, path).then(result => {
+
+                if (result > 0) return reject("File already exists.");
+
+                this.server.db.fileCreate(repo, path).then(result => {
+
+                    resolve();
+
+                }, error => reject("Uncaught server error.")).catch(error => this.error(error));
+
+            }, error => reject("Uncaught server error.")).catch(error => this.error(error));
+
+        });
+
+    }
+
+    moveFile(request, repo, file, newPath) {return new Promise((resolve, reject) => {return reject("Feature not yet coded.");});}
+    deleteFile(request, repo, file) {return new Promise((resolve, reject) => {return reject("Feature not yet coded.");});}
+
+    createDirectory(request, repo, directory) {return new Promise((resolve, reject) => {return reject("Feature not yet coded.");});}
+    moveDirectory(request, repo, directory, newPath) {return new Promise((resolve, reject) => {return reject("Feature not yet coded.");});}
+    deleteDirectory(request, repo, directory) {return new Promise((resolve, reject) => {return reject("Feature not yet coded.");});}
+
+    lineInsert(request, repo, file, lineId, column, data) {return new Promise((resolve, reject) => {return reject("Feature not yet coded.");});}
+    lineErase(request, repo, file, lineId, column, count) {return new Promise((resolve, reject) => {return reject("Feature not yet coded.");});}
+    lineSplit(request, repo, file, lineId, column, newLineId) {return new Promise((resolve, reject) => {return reject("Feature not yet coded.");});}
+    lineMerge(request, repo, file, lineId) {return new Promise((resolve, reject) => {return reject("Feature not yet coded.");});}
 
     //A factory-like way of handling requests, since a client must queue them
     newRequest(json) {
@@ -242,7 +499,8 @@ class Client extends EventEmitter {
 
         let s = JSON.stringify(json);
 
-        this.log("[SEND]", s);
+        if (s.indexOf("pass") >= 0) this.log("[SEND]", s.substr(0, s.indexOf("pass") + 6), "[REDACTED]");
+        else this.log("[SEND]", s);
 
         this.socket.send(s);
 
@@ -251,14 +509,14 @@ class Client extends EventEmitter {
     //Decorate log events with a stamp of the client
     log() {
 
-        console.log(...[colors.green(`[${this.name}]`), ...arguments]);
+        console.log(...[colors.green(`[${this.tag}]`), ...arguments]);
 
     }
 
     //Decorate error events with a stamp of the client
     error() {
 
-        console.error(...[colors.green(`[${this.name}]`), ...arguments]);
+        console.error(...[colors.green(`[${this.tag}]`), ...arguments]);
 
     }
 

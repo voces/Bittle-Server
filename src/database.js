@@ -87,11 +87,15 @@ class MongoDB extends EventEmitter {
             console.log(`Connected to mongod at '${this.url}'`);
 
             this.db = db;
-            this.user = db.collection('mongoclient_test');
+            this.user = db.collection("user");
+            this.permission = db.collection("permission");
+            this.repo = db.collection("repo");
+            this.directory = db.collection("directory");
+            this.file = db.collection("file");
 
             this.emit("ready", {config: this.config, url: this.url});
 
-            this.user.remove({name: /^deleteMe/});
+            this.clean();
 
         })
 
@@ -113,23 +117,48 @@ class MongoDB extends EventEmitter {
         return this.user.find({name: name}).toArray();
     }
 
-    userSetpass(name, pass) {}
-    userSetEmail(name, email) {}
+    userSetPass(name, pass) {
+        return this.user.updateOne({name: name}, {$set:{pass: pass}});
+    }
+
+    userSetEmail(name, email) {
+        return this.user.updateOne({name: name}, {$set:{email: email}});
+    }
 
     /******************************************************
      ** Repository
      ******************************************************/
 
-    repoCreate(name, parent) {}
-    repoGet(name) {}
+    repoCreate(name, parent) {
+        return this.repo.insertOne({
+            name: name,
+            parent: parent
+        });
+    }
+
+    repoGet(name) {
+        return this.repo.findOne({name: name});
+    }
+
     // repoDelete(name) {}
 
     /******************************************************
      ** Permission
      ******************************************************/
 
-    permSet(user, repo, permission) {}
-    permGet(user, repo) {}
+    permSet(user, repo, permission) {
+        // console.log("Granting", permission, "to", user, "for", repo);
+        return this.permission.insertOne({
+            user: user,
+            repo: repo,
+            permission: permission
+        });
+    }
+
+    permGet(user, repo) {
+        return this.permission.findOne({user: user, repo: repo});
+    }
+
     permDelete(user, repo) {}
 
     /******************************************************
@@ -144,18 +173,39 @@ class MongoDB extends EventEmitter {
      ** File
      ******************************************************/
 
-    fileCreate(directory, name) {}
-    fileMove(oldDirectory, name, newDirectory) {}
-    fileDelete(directory, name) {}
-    fileGet(directory, name) {}
+    fileCreate(repo, path) {
+        return this.file.insertOne({
+            repo: repo,
+            path: path
+        });
+    }
+
+    fileMove(repo, path, newPath) {}
+    fileDelete(repo, path) {}
+    fileGet(repo, path) {}
+
+    fileExists(repo, path) {
+        return this.file.find({repo: repo, path: path}, {"_id": 1}).limit(1).count();
+    }
 
     /******************************************************
      ** Line
      ******************************************************/
 
-    lineSet(file, lineId, value) {}
-    lineGet(file, lineId) {}
-    lineRemove(file, lineId) {}
+    lineSet(repo, file, lineId, value) {}
+    lineGet(repo, file, lineId) {}
+    lineRemove(repo, file, lineId) {}
+
+    /******************************************************
+     ** Misc
+     ******************************************************/
+
+    clean() {
+        this.user.remove({name: /^temp_/i});
+        this.repo.remove({name: /^temp_/i});
+        this.permission.remove({$or: [{user: /^temp_/i}, {repo: /^temp_/i}]});
+        this.file.remove({repo: /^temp_/i});
+    }
 
 }
 
@@ -208,12 +258,12 @@ class Database extends EventEmitter {
     	return this.db.userGet(name);
     }
 
-    userSetpass(name, pass) {
-    	return this.db.userSetpass(name, pass);
+    userSetPass(name, pass) {
+    	return this.db.userSetPass(name, pass);
     }
 
     userSetEmail(name, email) {
-    	return this.db.userSetEmail(name, email);
+        return this.db.userSetEmail(name, email);
     }
 
     /******************************************************
@@ -271,37 +321,49 @@ class Database extends EventEmitter {
      ** File
      ******************************************************/
 
-    fileCreate(directory, name) {
-    	return this.db.fileCreate(directory, name);
+    fileCreate(repo, path) {
+    	return this.db.fileCreate(repo, path);
     }
 
-    fileMove(oldDirectory, name, newDirectory) {
-    	return this.db.fileMove(oldDirectory, name, newDirectory);
+    fileMove(repo, path, newPath) {
+    	return this.db.fileMove(repo, path, newPath);
     }
 
-    fileDelete(directory, name) {
-    	return this.db.fileDelete(directory, name);
+    fileDelete(repo, path) {
+    	return this.db.fileDelete(repo, path);
     }
 
     //Returns vital stats and the file contents
-    fileGet(directory, name) {
-    	return this.db.fileGet(directory, name);
+    fileGet(repo, path) {
+    	return this.db.fileGet(repo, path);
+    }
+
+    fileExists(repo, path) {
+        return this.db.fileExists(repo, path);
     }
 
     /******************************************************
      ** Line
      ******************************************************/
 
-    lineSet(file, lineId, value) {
+    lineSet(repo, file, lineId, value) {
     	return this.db.lineSet(file, lineId, value);
     }
 
-    lineGet(file, lineId) {
+    lineGet(repo, file, lineId) {
     	return this.db.lineGet(file, lineId);
     }
 
-    lineRemove(file, lineId) {
+    lineRemove(repo, file, lineId) {
     	return this.db.lineRemove(file, lineId);
+    }
+
+    /******************************************************
+     ** Misc
+     ******************************************************/
+
+    clean() {
+        return this.db.clean();
     }
 
 }
