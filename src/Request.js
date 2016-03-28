@@ -67,6 +67,8 @@ class Request extends EventEmitter {
                 //Permissions
                 case "setPermission": this.enforceParamsAndAccessThenCall({repo: "string", user: "string", role: "string"}, "manager",
                                                                           this.client.addPermission.bind(this.client)); break;
+                case "deletePermission": this.enforceParamsAndAccessThenCall({repo: "string", user: "string"}, "manager",
+                                                                          this.client.deletePermission.bind(this.client)); break;
 
                 //Files
                 case "createFile": this.enforceParamsAndAccessThenCall({repo: "string", file: "string"}, "contributor", this.client.createFile.bind(this.client)); break;

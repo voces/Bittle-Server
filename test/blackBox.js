@@ -14,7 +14,7 @@ function defaultCallback(result) {
 function newTest(message, action, callback, silent) {
 
     //Test has no associated message
-    if (typeof message !== "string") {
+    if (typeof message !== "string" || arguments.length === 2) {
         silent = callback;
         callback = action;
         action = message;
@@ -86,7 +86,7 @@ let tester = new Tester([
 
     //Testing of preauth things
     [{id: "register", name: "temp_1", pass: "passphrase"}, {id: "register", status: "closed"}],
-    // [{id: "register", name: "temp_2", pass: "passphrase"}, {id: "register", status: "closed"}, true],
+    [{id: "register", name: "temp_2", pass: "passphrase"}, {id: "register", status: "closed"}, true],
     // [{id: "register", name: "temp_3", pass: "passphrase"}, {id: "register", status: "closed"}, true],
     // [{id: "register", name: "temp_4", pass: "passphrase"}, {id: "register", status: "closed"}, true],
     // [{id: "register", name: "temp_1", pass: "passphrase"}, {id: "register", status: "failed", reason: "Name is already taken."}],
@@ -97,7 +97,8 @@ let tester = new Tester([
     // [{id: "changeEmail", name: "temp_1", pass: "newPass", newEmail: "test@test.test"}, {id: "changeEmail", status: "closed"}],
     // [{id: "login", name: "temp_1", pass: "passphrase"}, {id: "login", status: "failed", reason: "Incorrect pass."}],
     // [{id: "login", name: "temp_1", pass: "newPass"}, {id: "login", status: "closed"}],
-    // [{id: "resetPass", name: "temp_1"}, {id: "resetPass", status: "closed"}]
+
+    // [{id: "resetPass", name: "temp_1"}, {id: "resetPass", status: "closed"}],
 
     //Testing of postauth auth things
     // [{id: "changePass", name: "temp_1", pass: "newPass", newPass: "passphrase"}, {id: "changePass", status: "closed"}],
@@ -115,6 +116,8 @@ let tester = new Tester([
     //Permissions
     // [{id: "setPermission", repo: "temp_1", user: "temp_5", role: "contributor"}, {id: "setPermission", status: "failed", reason: "User does not exist."}],
     // [{id: "setPermission", repo: "temp_1", user: "temp_2", role: "manager"}, {id: "setPermission", status: "closed"}],
+    // [{id: "setPermission", repo: "temp_1", user: "temp_2", role: "none"}, {id: "setPermission", status: "closed"}],
+    // [{id: "deletePermission", repo: "temp_1", user: "temp_2"}, {id: "deletePermission", status: "failed", reason: "User does not have any permission."}],
     // [{id: "logout"}, {id: "logout", status: "closed"}, true],
     // [{id: "login", name: "temp_2", pass: "passphrase"}, {id: "login", status: "closed"}, true],
     // [{id: "setPermission", repo: "temp_1", user: "temp_3", role: "owner"}, {id: "setPermission", status: "failed", reason: "Not enough permission."}],
@@ -125,17 +128,21 @@ let tester = new Tester([
     // [{id: "logout"}, {id: "logout", status: "closed"}, true],
     // [{id: "login", name: "temp_1", pass: "passphrase"}, {id: "login", status: "closed"}, true],
 
-    //Uncoded
+    //Files
     [{id: "createFile", repo: "temp_1", file: "sample.txt"}, {id: "createFile", status: "closed"}],
-    [{id: "createFile", repo: "temp_1", file: "sample.txt"}, {id: "createFile", status: "failed", reason: "File already exists."}],
-    // [{id: "moveFile", repo: "temp_1", file: "sample.txt", newPath: "magic.txt"}, {id: "moveFile", status: "failed", reason: "Feature not yet coded."}],
-    // [{id: "deleteFile", repo: "temp_1", file: "magic.txt"}, {id: "deleteFile", status: "failed", reason: "Feature not yet coded."}],
-    // [{id: "createFile", repo: "temp_1", file: "sample.txt"}, {id: "createFile", status: "failed", reason: "Feature not yet coded."}],
+    // [{id: "createFile", repo: "temp_1", file: "sample.txt"}, {id: "createFile", status: "failed", reason: "File already exists."}],
+    // [{id: "moveFile", repo: "temp_1", file: "magic.txt", newPath: "sample.txt"}, {id: "moveFile", status: "failed", reason: "File does not exist."}],
+    // [{id: "moveFile", repo: "temp_1", file: "sample.txt", newPath: "magic.txt"}, {id: "moveFile", status: "closed"}],
+    // [{id: "moveFile", repo: "temp_1", file: "magic.txt", newPath: "sample.txt"}, {id: "moveFile", status: "closed"}, true],
+    [{id: "deleteFile", repo: "temp_1", file: "magic.txt"}, {id: "deleteFile", status: "failed", reason: "File does not exist."}],
+    [{id: "deleteFile", repo: "temp_1", file: "sample.txt"}, {id: "deleteFile", status: "closed"}],
 
+    //Directories
     // [{id: "createDirectory", repo: "temp_1", directory: "sample"}, {id: "createDirectory", status: "failed", reason: "Feature not yet coded."}],
     // [{id: "moveDirectory", repo: "temp_1", directory: "sample", newPath: "magic"}, {id: "moveDirectory", status: "failed", reason: "Feature not yet coded."}],
     // [{id: "deleteDirectory", repo: "temp_1", directory: "magic"}, {id: "deleteDirectory", status: "failed", reason: "Feature not yet coded."}],
 
+    //Lines
     // [{id: "insert", repo: "temp_1", file: "sample.txt", lineId: "0", col: 0, data: "Hello World"}, {id: "insert", status: "failed", reason: "Feature not yet coded."}],
     // [{id: "erase", repo: "temp_1", file: "sample.txt", lineId: "0", col: 6, count: 1}, {id: "erase", status: "failed", reason: "Feature not yet coded."}],
     // [{id: "split", repo: "temp_1", file: "sample.txt", lineId: "0", col: 6, newLineId: "1"}, {id: "split", status: "failed", reason: "Feature not yet coded."}],
@@ -143,8 +150,6 @@ let tester = new Tester([
 
 
 ], {newTest: newTest, timeout: 5000});
-
-console.log(resolve(state, "key"));
 
 let ws = new WebSocket("wss://notextures.io:8086");
 

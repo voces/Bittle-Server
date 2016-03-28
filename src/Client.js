@@ -121,7 +121,7 @@ class Client extends EventEmitter {
 
                 resolve();
 
-            }, error => reject("Uncaught server error."));
+            }, badCredentials => reject(badCredentials));
 
         });
 
@@ -345,7 +345,10 @@ class Client extends EventEmitter {
                 if (permRecord && PERMISSIONS.indexOf(permRecord.permission) <= PERMISSIONS.indexOf(request.access))
                     return reject("User has equal or greater permission.");
 
-                this.server.db.permSet(userName, repo, role).then(
+                if (!permRecord && role === "none")
+                    return reject("User does not have any permission.");
+
+                this.server.db[role === "none" ? "permDelete" : "permSet"](userName, repo, role).then(
 
                     result => resolve(),
                     error => reject("Uncaught server error.")
@@ -358,6 +361,11 @@ class Client extends EventEmitter {
 
     }
 
+    deletePermission(request, repo, userName) {
+        return this.addPermission(request, repo, userName, "none");
+
+    }
+
     createFile(request, repo, path) {
 
         return new Promise((resolve, reject) => {
@@ -366,20 +374,48 @@ class Client extends EventEmitter {
 
                 if (result > 0) return reject("File already exists.");
 
-                this.server.db.fileCreate(repo, path).then(result => {
+                this.server.db.fileCreate(repo, path).then(
+                    result => resolve(),
+                    error => reject("Uncaught server error.")
+                );
 
-                    resolve();
-
-                }, error => reject("Uncaught server error.")).catch(error => this.error(error));
-
-            }, error => reject("Uncaught server error.")).catch(error => this.error(error));
-
+            }, error => reject("Uncaught server error."));
         });
-
     }
 
-    moveFile(request, repo, file, newPath) {return new Promise((resolve, reject) => {return reject("Feature not yet coded.");});}
-    deleteFile(request, repo, file) {return new Promise((resolve, reject) => {return reject("Feature not yet coded.");});}
+    moveFile(request, repo, file, newPath) {
+
+        return new Promise((resolve, reject) => {
+
+            this.server.db.fileExists(repo, file).then(result => {
+
+                if (result === 0) return reject("File does not exist.");
+
+                this.server.db.fileMove(repo, file, newPath).then(
+                    result => resolve(),
+                    error => reject("Uncaught server error.")
+                );
+
+            }, error => reject("Uncaught server error."));
+        });
+    }
+
+    deleteFile(request, repo, file) {
+
+        return new Promise((resolve, reject) => {
+
+            this.server.db.fileExists(repo, file).then(result => {
+
+                if (result === 0) return reject("File does not exist.");
+
+                this.server.db.fileDelete(repo, file).then(
+                    result => resolve(),
+                    error => reject("Uncaught server error.")
+                );
+
+            }, error => reject("Uncaught server error."));
+        });
+    }
 
     createDirectory(request, repo, directory) {return new Promise((resolve, reject) => {return reject("Feature not yet coded.");});}
     moveDirectory(request, repo, directory, newPath) {return new Promise((resolve, reject) => {return reject("Feature not yet coded.");});}

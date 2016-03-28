@@ -16,6 +16,8 @@ class Test {
 
         event.json = JSON.parse(event.data);
 
+        console.log(event.json);
+
         return this.callback(event);
 
     }

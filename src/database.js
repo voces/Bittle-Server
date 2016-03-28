@@ -159,7 +159,9 @@ class MongoDB extends EventEmitter {
         return this.permission.findOne({user: user, repo: repo});
     }
 
-    permDelete(user, repo) {}
+    permDelete(user, repo) {
+        return this.permission.deleteOne({user: user, repo: repo});
+    }
 
     /******************************************************
      ** Directory
@@ -180,8 +182,22 @@ class MongoDB extends EventEmitter {
         });
     }
 
-    fileMove(repo, path, newPath) {}
-    fileDelete(repo, path) {}
+    fileMove(repo, path, newPath) {
+        return this.file.updateOne({
+            repo: repo,
+            path: path
+        }, {$set: {
+            path: newPath
+        }});
+    }
+
+    fileDelete(repo, path) {
+        return this.file.removeOne({
+            repo: repo,
+            path: path
+        });
+    }
+
     fileGet(repo, path) {}
 
     fileExists(repo, path) {
