@@ -27,9 +27,8 @@ class Request extends EventEmitter {
 
         // this.client.log("[PROCESS]", this.json.id);
 
-        if (!this.client.authenticated) {
-
-            //Handle PREAUTH events here
+        //Handle PREAUTH events here
+        if (!this.client.authenticated)
 
             switch (this.json.id) {
 
@@ -38,17 +37,23 @@ class Request extends EventEmitter {
                 case "register": this.enforceParamsThenCall({name: "string", pass: "string"}, this.client.register.bind(this.client)); break;
                 case "login": this.enforceParamsThenCall({name: "string", pass: "string"}, this.client.login.bind(this.client)); break;
 
-                case "changePass": this.enforceParamsThenCall({name: "string", pass: "string", newPass: "string"}, this.client.changePassAuth.bind(this.client)); break;
-                case "changeEmail": this.enforceParamsThenCall({name: "string", pass: "string", newEmail: "string"}, this.client.changeEmailAuth.bind(this.client)); break;
+                case "changePass":
+                    this.enforceParamsThenCall({name: "string", pass: "string", newPass: "string"}, this.client.changePassAuth.bind(this.client));
+                    break;
+
+                case "changeEmail":
+                    this.enforceParamsThenCall({name: "string", pass: "string", newEmail: "string"}, this.client.changeEmailAuth.bind(this.client));
+                    break;
+
                 case "resetPass": this.enforceParamsThenCall({name: "string"}, this.client.resetPass.bind(this.client)); break;
 
                 default: this.fail({reason: "Request ID is not valid or is not allowed before logging in.", data: this.json});
 
             }
 
-        } else {
+        //Handle all other events here
+        else
 
-            //Handle all other events here
             switch (this.json.id) {
 
                 //Misc
@@ -56,8 +61,8 @@ class Request extends EventEmitter {
 
                 //Auth
                 case "logout": this.enforceParamsThenCall(null, this.client.logout.bind(this.client)); break;
-                case "changePass": this.enforceParamsThenCall({name: "string", pass: "string", newPass: "string"}, this.client.changePass.bind(this.client)); break;
-                case "changeEmail": this.enforceParamsThenCall({name: "string", pass: "string", newEmail: "string"}, this.client.changeEmail.bind(this.client)); break;
+                case "changePass": this.enforceParamsThenCall({pass: "string", newPass: "string"}, this.client.changePass.bind(this.client)); break;
+                case "changeEmail": this.enforceParamsThenCall({pass: "string", newEmail: "string"}, this.client.changeEmail.bind(this.client)); break;
 
                 //Repo management
                 case "createRepo": this.enforceParamsThenCall({name: "string"}, this.client.createRepo.bind(this.client)); break;
@@ -65,40 +70,76 @@ class Request extends EventEmitter {
                 case "deleteRepoConfirm": this.enforceParamsThenCall({key: "number"}, this.client.deleteRepoConfirm.bind(this.client)); break;
 
                 //Permissions
-                case "setPermission": this.enforceParamsAndAccessThenCall({repo: "string", user: "string", role: "string"}, "manager",
-                                                                          this.client.addPermission.bind(this.client)); break;
-                case "deletePermission": this.enforceParamsAndAccessThenCall({repo: "string", user: "string"}, "manager",
-                                                                          this.client.deletePermission.bind(this.client)); break;
+                case "setPermission":
+                    this.enforceParamsAndAccessThenCall({repo: "string", user: "string", role: "string"}, "manager",
+                        this.client.addPermission.bind(this.client));
+                    break;
+
+                case "deletePermission":
+                    this.enforceParamsAndAccessThenCall({repo: "string", user: "string"}, "manager", this.client.deletePermission.bind(this.client));
+                    break;
 
                 //Files
-                case "createFile": this.enforceParamsAndAccessThenCall({repo: "string", file: "string"}, "contributor", this.client.createFile.bind(this.client)); break;
-                case "moveFile": this.enforceParamsAndAccessThenCall({repo: "string", file: "string", newPath: "string"}, "contributor",
-                                                                     this.client.moveFile.bind(this.client)); break;
-                case "deleteFile": this.enforceParamsAndAccessThenCall({repo: "string", file: "string"}, "contributor", this.client.deleteFile.bind(this.client)); break;
+                case "createFile":
+                    this.enforceParamsAndAccessThenCall({repo: "string", file: "string"}, "contributor", this.client.createFile.bind(this.client));
+                    break;
+
+                case "moveFile":
+                    this.enforceParamsAndAccessThenCall({repo: "string", file: "string", newPath: "string"}, "contributor",
+                        this.client.moveFile.bind(this.client));
+                    break;
+
+                case "deleteFile":
+                    this.enforceParamsAndAccessThenCall({repo: "string", file: "string"}, "contributor", this.client.deleteFile.bind(this.client));
+                    break;
+
+                case "getFile":
+                    this.enforceParamsAndAccessThenCall({repo: "string", file: "string"}, "contributor", this.client.getFile.bind(this.client));
+                    break;
 
                 //Directories
-                case "createDirectory": this.enforceParamsAndAccessThenCall({repo: "string", directory: "string"}, "contributor",
-                                                                            this.client.createDirectory.bind(this.client)); break;
-                case "moveDirectory": this.enforceParamsAndAccessThenCall({repo: "string", directory: "string", newPath: "string"}, "contributor",
-                                                                          this.client.moveDirectory.bind(this.client)); break;
-                case "deleteDirectory": this.enforceParamsAndAccessThenCall({repo: "string", directory: "string"}, "contributor",
-                                                                            this.client.deleteDirectory.bind(this.client)); break;
+                case "createDirectory":
+                    this.enforceParamsAndAccessThenCall({repo: "string", directory: "string"}, "contributor", this.client.createDirectory.bind(this.client));
+                    break;
+
+                case "moveDirectory":
+                    this.enforceParamsAndAccessThenCall({repo: "string", directory: "string", newPath: "string"}, "contributor",
+                        this.client.moveDirectory.bind(this.client));
+                    break;
+
+                case "deleteDirectory":
+                    this.enforceParamsAndAccessThenCall({repo: "string", directory: "string"}, "contributor", this.client.deleteDirectory.bind(this.client));
+                    break;
 
                 //Lines
-                case "insert": this.enforceParamsAndAccessThenCall({repo: "string", file: "string", lineId: "string", col: "number", data: "string"}, "contributor",
-                                                                   this.client.lineInsert.bind(this.client)); break;
-                case "erase": this.enforceParamsAndAccessThenCall({repo: "string", file: "string", lineId: "string", col: "number", count: "number"}, "contributor",
-                                                                  this.client.lineErase.bind(this.client)); break;
-                case "split": this.enforceParamsAndAccessThenCall({repo: "string", file: "string", lineId: "string", col: "number", newLineId: "string"}, "contributor",
-                                                                  this.client.lineSplit.bind(this.client)); break;
-                case "merge": this.enforceParamsAndAccessThenCall({repo: "string", file: "string", lineId: "string"}, "contributor",
-                                                                  this.client.lineMerge.bind(this.client)); break;
+                case "insert":
+                    this.enforceParamsAndAccessThenCall({repo: "string", file: "string", lineId: "string", col: "number", data: "string"}, "contributor",
+                        this.client.lineInsert.bind(this.client));
+                    break;
+
+                case "erase":
+                    this.enforceParamsAndAccessThenCall({repo: "string", file: "string", lineId: "string", col: "number", count: "number"}, "contributor",
+                        this.client.lineErase.bind(this.client));
+                    break;
+
+                case "split":
+                    this.enforceParamsAndAccessThenCall({repo: "string", file: "string", lineId: "string", col: "number", newLineId: "string"}, "contributor",
+                        this.client.lineSplit.bind(this.client));
+                    break;
+
+                case "merge":
+                    this.enforceParamsAndAccessThenCall({repo: "string", file: "string", lineId: "string"}, "contributor",
+                        this.client.lineMerge.bind(this.client));
+                    break;
+
+                case "getLine":
+                    this.enforceParamsAndAccessThenCall({repo: "string", file: "string", lineId: "string"}, "contributor",
+                        this.client.getLine.bind(this.client));
+                    break;
 
                 default: this.finish({id: "onReject", reason: "Bad ID.", data: this.json});
 
             }
-
-        }
 
     }
 

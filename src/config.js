@@ -2,7 +2,24 @@
 "use strict";
 
 const fs = require("fs"),
-    path = require("path");
+    path = require("path"),
+    colors = require("colors");
+
+function log() {
+
+    /*eslint-disable no-console*/
+    console.log(...[colors.cyan("[Config]"), ...arguments]);
+    /*eslint-enable no-console*/
+
+}
+
+function error() {
+
+    /*eslint-disable no-console*/
+    console.error(...[colors.cyan("[Config]"), ...arguments]);
+    /*eslint-enable no-console*/
+
+}
 
 module.exports = (filePath, callback) => {
 
@@ -19,7 +36,7 @@ module.exports = (filePath, callback) => {
 
         if (err) {
 
-            console.error(`Error opening config file '${filePath}', exiting`);
+            error(`Error opening config file '${filePath}', exiting`);
             process.exit(1);
 
         }
@@ -27,12 +44,11 @@ module.exports = (filePath, callback) => {
         try {
 
             data = JSON.parse(data.toString());
-
-            console.log(`Loaded config file '${filePath}'`);
+            log(`Loaded config file '${filePath}'`);
 
         } catch (e) {
 
-            console.error(`Error parsing config file '${filePath}', exiting`);
+            error(`Error parsing config file '${filePath}', exiting`);
             process.exit(1);
 
         }
@@ -41,4 +57,4 @@ module.exports = (filePath, callback) => {
 
     });
 
-}
+};

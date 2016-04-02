@@ -6,6 +6,7 @@ const EventEmitter = require("events"),
     https = require("https"),
     ws = require("ws"),
     async = require("async"),
+    colors = require("colors"),
 
     Client = require("./Client");
 
@@ -28,7 +29,7 @@ class WSS extends EventEmitter {
             //If the keys fail to load, kill the process
             if (err) {
 
-                console.error(err);
+                this.error(err);
                 process.exit(1);
 
             }
@@ -65,11 +66,29 @@ class WSS extends EventEmitter {
 
             });
 
-            console.log(`Started wss server on port '${config.port}'`)
+            this.log(`Started wss server on port '${config.port}'`);
 
             this.emit("start", config);
 
         });
+
+    }
+
+    //Decorate log events with a stamp of the client
+    log() {
+
+        /*eslint-disable no-console*/
+        console.log(...[colors.green("[WSS]"), ...arguments]);
+        /*eslint-enable no-console*/
+
+    }
+
+    //Decorate error events with a stamp of the client
+    error() {
+
+        /*eslint-disable no-console*/
+        console.error(...[colors.green("[WSS]"), ...arguments]);
+        /*eslint-enable no-console*/
 
     }
 
@@ -96,9 +115,24 @@ class Server extends EventEmitter {
         this.servers.push(server);
 
         //Only event we care about from a sub-server
-        server.on("connection", socket => this.clients.push(new Client(this, socket)));
+        server.on("connection", this.newClient.bind(this));
 
         server.on("start", e => this.emit("wsstart", e));
+
+    }
+
+    newClient(socket) {
+
+        let client = new Client(this, socket);
+        this.clients.push(client);
+
+        client.on("close", this.removeClient.bind(this));
+
+    }
+
+    removeClient(client) {
+
+        this.clients.splice(this.clients.indexOf(client), 1);
 
     }
 
@@ -121,6 +155,24 @@ class Server extends EventEmitter {
                     break;
 
             }
+
+    }
+
+    //Decorate log events with a stamp of the client
+    log() {
+
+        /*eslint-disable no-console*/
+        console.log(...[colors.green("[Server]"), ...arguments]);
+        /*eslint-enable no-console*/
+
+    }
+
+    //Decorate error events with a stamp of the client
+    error() {
+
+        /*eslint-disable no-console*/
+        console.error(...[colors.green("[Server]"), ...arguments]);
+        /*eslint-enable no-console*/
 
     }
 

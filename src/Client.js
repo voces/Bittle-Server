@@ -6,7 +6,7 @@ const EventEmitter = require("events"),
     bcrypt = require("bcryptjs"),
 
     Request = require("./Request"),
-    Key = require("./Key"),
+    // Key = require("./Key"),
 
     PERMISSIONS = ["owner", "manager", "contributor", "observer", "none"];
 
@@ -50,20 +50,7 @@ class Client extends EventEmitter {
 
             this.server.db.userGet(name).then(users => {
 
-                if (users.length === 0) {
-
-                    reject("Account does not exist.")
-                    return;
-
-                }
-
-                if (users.length > 1) {
-
-                    this.error("Duplicate users?", name, users);
-                    reject("Duplicate users found.");
-                    return;
-
-                }
+                if (users.length === 0) return reject("Account does not exist.");
 
                 this.comparePass(name, pass, users[0].pass).then(matched => {
 
@@ -97,7 +84,7 @@ class Client extends EventEmitter {
                 }
 
                 this.server.db.userCreate(name, hash, request.json.email).then(
-                    result => resolve(),
+                    (/*result*/) => resolve(),
                     error => {this.error(error); reject("Unable write to database.");}
                 );
 
@@ -127,9 +114,9 @@ class Client extends EventEmitter {
 
     }
 
-    logout(request) {
+    logout(/*request*/) {
 
-        return new Promise((resolve, reject) => {
+        return new Promise((resolve/*, reject*/) => {
 
             this.authenticated = false;
 
@@ -154,15 +141,17 @@ class Client extends EventEmitter {
 
             ]).then(result => {
 
-                let user = result[0],
+                let users = result[0],
                     hash = result[1];
 
+                if (users.length === 0) return reject("Account does not exist.");
+
                 this.server.db.userSetPass(name, hash).then(
-                    result => resolve(),
+                    (/*result*/) => resolve(),
                     error => {this.error(error); reject("Unable to query database.");}
                 );
 
-            }, error => reject("Uncaught server error."));
+            }, badCredentials => reject(badCredentials));
 
         });
 
@@ -172,14 +161,14 @@ class Client extends EventEmitter {
 
         return new Promise((resolve, reject) => {
 
-            this.auth(name, pass).then(user => {
+            this.auth(name, pass).then((/*user*/) => {
 
                 this.server.db.userSetEmail(name, newEmail).then(
-                    result => resolve(),
+                    (/*result*/) => resolve(),
                     error => {this.error(error); reject("Unable to query database.");}
                 );
 
-            }, error => reject("Uncaught server error."));
+            }, badCredentials => reject(badCredentials));
 
         });
 
@@ -187,7 +176,7 @@ class Client extends EventEmitter {
 
     //This function requires a mailer of some sort
     // Considering https://github.com/andris9/smtp-server
-    resetPass(request, name) {
+    resetPass(/*request, name*/) {
 
         return new Promise((resolve, reject) => {
 
@@ -206,31 +195,42 @@ class Client extends EventEmitter {
 
     }
 
-    changePass(request, name, pass, newPass) {
+    changePass(request, pass, newPass) {
 
         return new Promise((resolve, reject) => {
 
-            this.saltPass(name, newPass).then(hash => {
+            Promise.all([
 
-                this.server.db.userSetPass(name, hash).then(
-                    result => resolve(),
+                this.auth(this.name, pass),
+                this.saltPass(this.name, newPass)
+
+            ]).then(result => {
+
+                let hash = result[1];
+
+                this.server.db.userSetPass(this.name, hash).then(
+                    (/*result*/) => resolve(),
                     error => {this.error(error); reject("Unable to query database.");}
                 );
 
-            }, error => reject("Uncaught server error."));
+            }, badCredentials => reject(badCredentials));
 
         });
 
     }
 
-    changeEmail(request, name, pass, newEmail) {
+    changeEmail(reques, pass, newEmail) {
 
         return new Promise((resolve, reject) => {
 
-            this.server.db.userSetEmail(name, newEmail).then(
-                result => resolve(),
-                error => {this.error(error); reject("Unable to query database.");}
-            );
+            this.auth(this.name, pass).then((/*user*/) => {
+
+                this.server.db.userSetEmail(this.name, newEmail).then(
+                    (/*result*/) => resolve(),
+                    error => {this.error(error); reject("Unable to query database.");}
+                );
+
+            }, badCredentials => reject(badCredentials));
 
         });
 
@@ -283,8 +283,8 @@ class Client extends EventEmitter {
 
                 ]).then(
 
-                    result => resolve(),
-                    error => reject("Uncaught server error.")
+                    (/*result*/) => resolve(),
+                    (/*error*/) => reject("Uncaught server error.")
 
                 );
 
@@ -294,33 +294,35 @@ class Client extends EventEmitter {
 
     }
 
-    deleteRepo(request, name) {
+    deleteRepo(/*request, name*/) {
 
         return new Promise((resolve, reject) => {
 
-            // reject("Feature not yet coded.");   //Because it's not done so in the DB...
+            reject("Feature not yet coded.");   //Because it's not done so in the DB...
 
-            this.activeKey = new Key(30000);
-            resolve({key: this.activeKey.id});
+            // this.activeKey = new Key(30000);
+            // resolve({key: this.activeKey.id});
 
         });
 
     }
 
-    deleteRepoConfirm(request, key) {
+    deleteRepoConfirm(/*request, key*/) {
 
         return new Promise((resolve, reject) => {
 
-            if (this.activeKey && this.activeKey.id === key) {
-                if (this.activeKey.expired) return reject("Key has expired.");
-                return reject("Feature not yet coded.");
-            } else return reject("Key does not match.");
+            reject("Feature not yet coded.");
+
+            // if (this.activeKey && this.activeKey.id === key) {
+            //     if (this.activeKey.expired) return reject("Key has expired.");
+            //     return reject("Feature not yet coded.");
+            // } else return reject("Key does not match.");
 
         });
 
     }
 
-    addPermission(request, repo, userName, role) {
+    addPermission(request, repoName, userName, role) {
 
         return new Promise((resolve, reject) => {
 
@@ -333,14 +335,17 @@ class Client extends EventEmitter {
             Promise.all([
 
                 this.server.db.userGet(userName),
-                this.server.db.permGet(userName, repo)
+                this.server.db.repoGet(repoName),
+                this.server.db.permGet(userName, repoName)
 
             ]).then(result => {
 
                 let user = result[0][0],
-                    permRecord = result[1];
+                    repo = result[1],
+                    permRecord = result[2];
 
                 if (!user) return reject("User does not exist.");
+                if (!repo) return reject("Repo does not exist.");
 
                 if (permRecord && PERMISSIONS.indexOf(permRecord.permission) <= PERMISSIONS.indexOf(request.access))
                     return reject("User has equal or greater permission.");
@@ -348,10 +353,11 @@ class Client extends EventEmitter {
                 if (!permRecord && role === "none")
                     return reject("User does not have any permission.");
 
-                this.server.db[role === "none" ? "permDelete" : "permSet"](userName, repo, role).then(
+                this.log(role === "none" ? "permDelete" : "permSet", userName, repoName, role);
+                this.server.db[role === "none" ? "permDelete" : "permSet"](userName, repoName, role).then(
 
-                    result => resolve(),
-                    error => reject("Uncaught server error.")
+                    (/*result*/) => resolve(),
+                    (/*error*/) => reject("Uncaught server error.")
 
                 );
 
@@ -361,8 +367,8 @@ class Client extends EventEmitter {
 
     }
 
-    deletePermission(request, repo, userName) {
-        return this.addPermission(request, repo, userName, "none");
+    deletePermission(request, repoName, userName) {
+        return this.addPermission(request, repoName, userName, "none");
 
     }
 
@@ -375,11 +381,11 @@ class Client extends EventEmitter {
                 if (result > 0) return reject("File already exists.");
 
                 this.server.db.fileCreate(repo, path).then(
-                    result => resolve(),
-                    error => reject("Uncaught server error.")
+                    (/*result*/) => resolve(),
+                    (/*error*/) => reject("Uncaught server error.")
                 );
 
-            }, error => reject("Uncaught server error."));
+            }, (/*error*/) => reject("Uncaught server error."));
         });
     }
 
@@ -392,11 +398,11 @@ class Client extends EventEmitter {
                 if (result === 0) return reject("File does not exist.");
 
                 this.server.db.fileMove(repo, file, newPath).then(
-                    result => resolve(),
-                    error => reject("Uncaught server error.")
+                    (/*result*/) => resolve(),
+                    (/*error*/) => reject("Uncaught server error.")
                 );
 
-            }, error => reject("Uncaught server error."));
+            }, (/*error*/) => reject("Uncaught server error."));
         });
     }
 
@@ -409,22 +415,247 @@ class Client extends EventEmitter {
                 if (result === 0) return reject("File does not exist.");
 
                 this.server.db.fileDelete(repo, file).then(
-                    result => resolve(),
-                    error => reject("Uncaught server error.")
+                    (/*result*/) => resolve(),
+                    (/*error*/) => reject("Uncaught server error.")
                 );
 
-            }, error => reject("Uncaught server error."));
+            }, (/*error*/) => reject("Uncaught server error."));
         });
     }
 
-    createDirectory(request, repo, directory) {return new Promise((resolve, reject) => {return reject("Feature not yet coded.");});}
-    moveDirectory(request, repo, directory, newPath) {return new Promise((resolve, reject) => {return reject("Feature not yet coded.");});}
-    deleteDirectory(request, repo, directory) {return new Promise((resolve, reject) => {return reject("Feature not yet coded.");});}
+    getFile(request, repo, path) {
 
-    lineInsert(request, repo, file, lineId, column, data) {return new Promise((resolve, reject) => {return reject("Feature not yet coded.");});}
-    lineErase(request, repo, file, lineId, column, count) {return new Promise((resolve, reject) => {return reject("Feature not yet coded.");});}
-    lineSplit(request, repo, file, lineId, column, newLineId) {return new Promise((resolve, reject) => {return reject("Feature not yet coded.");});}
-    lineMerge(request, repo, file, lineId) {return new Promise((resolve, reject) => {return reject("Feature not yet coded.");});}
+        return new Promise((resolve, reject) => {
+
+            this.server.db.fileGet(repo, path).then(file => {
+
+                this.log(file);
+
+                let returnFile = {
+                    repo: file.repo,
+                    path: file.path,
+                    lines: []
+                };
+
+                for (let i = 0; i < file.lines.length; i++)
+                    returnFile.lines[i] = {lineId: file.lines[i].lineId, line: file.lines[i].line};
+
+                resolve(returnFile);
+
+            }, error => reject(error));
+
+        });
+    }
+
+    createDirectory(request, repo, directory) {
+
+        return new Promise((resolve, reject) => {
+
+            this.server.db.dirExists(repo, directory).then(result => {
+
+                if (result > 0) return reject("Directory already exists.");
+
+                this.server.db.dirCreate(repo, directory).then(
+                    (/*result*/) => resolve(),
+                    (/*error*/) => reject("Uncaught server error.")
+                );
+
+            }, (/*error*/) => reject("Uncaught server error."));
+        });
+    }
+
+    moveDirectory(request, repo, directory, newPath) {
+
+        return new Promise((resolve, reject) => {
+
+            this.server.db.dirExists(repo, directory).then(result => {
+
+                if (result === 0) return reject("Directory does not exist.");
+
+                this.server.db.dirMove(repo, directory, newPath).then(
+                    (/*result*/) => resolve(),
+                    (/*error*/) => reject("Uncaught server error.")
+                );
+
+            }, (/*error*/) => reject("Uncaught server error."));
+        });
+    }
+
+    deleteDirectory(request, repo, directory) {
+
+        return new Promise((resolve, reject) => {
+
+            this.server.db.dirExists(repo, directory).then(result => {
+
+                if (result === 0) return reject("Directory does not exist.");
+
+                this.server.db.dirDelete(repo, directory).then(
+                    (/*result*/) => resolve(),
+                    (/*error*/) => reject("Uncaught server error.")
+                );
+
+            }, (/*error*/) => reject("Uncaught server error."));
+        });
+    }
+
+    lineInsert(request, repo, file, lineId, column, data) {
+
+        return new Promise((resolve, reject) => {
+
+            Promise.all([
+
+                this.server.db.fileExists(repo, file),
+                this.server.db.lineGet(repo, file, lineId)
+
+            ]).then(result => {
+
+                if (result[0] === 0) return reject("File does not exist.");
+
+                let line = result[1];
+
+                if (line === null) line = "";
+                else line = line.line;
+
+                this.server.db.lineSet(repo, file, lineId, line.slice(0, column) + data + line.slice(column)).then(
+                    (/*result*/) => resolve(),
+                    (/*error*/) => reject("Uncaught server error.")
+                );
+
+            });
+
+        });
+    }
+
+    lineErase(request, repo, file, lineId, column, count) {
+
+        return new Promise((resolve, reject) => {
+
+            Promise.all([
+
+                this.server.db.fileExists(repo, file),
+                this.server.db.lineGet(repo, file, lineId)
+
+            ]).then(result => {
+
+                if (result[0] === 0) return reject("File does not exist.");
+
+                let line = result[1];
+
+                if (line === null) line = "";
+                else line = line.line;
+
+                this.server.db.lineSet(repo, file, lineId, line.slice(0, column) + line.slice(column + count)).then(
+                    (/*result*/) => resolve(),
+                    (/*error*/) => reject("Uncaught server error.")
+                );
+
+            });
+
+        });
+
+    }
+
+    lineSplit(request, repo, file, lineId, column, newLineId) {
+
+        return new Promise((resolve, reject) => {
+
+            Promise.all([
+
+                this.server.db.fileExists(repo, file),
+                this.server.db.lineGet(repo, file, lineId),
+                this.server.db.lineGet(repo, file, newLineId)
+
+            ]).then(result => {
+
+                if (result[0] === 0) return reject("File does not exist.");
+
+                let oldLine = result[1],
+                    newLine = result[2];
+
+                if (oldLine === null) return reject("Line does not exist");
+                else oldLine = oldLine.line;
+
+                if (newLine !== null) return reject("Line already exists.");
+
+                if (column === -1) column = oldLine.length;
+
+                Promise.all([
+
+                    this.server.db.lineSet(repo, file, lineId, oldLine.slice(0, column), null, newLineId),
+                    this.server.db.lineSet(repo, file, newLineId, oldLine.slice(column), lineId)
+
+                ]).then(result => resolve());
+
+            });
+
+        });
+
+    }
+
+    lineMerge(request, repo, file, lineId) {
+
+        return new Promise((resolve, reject) => {
+
+            Promise.all([
+
+                this.server.db.fileExists(repo, file),
+                this.server.db.lineGet(repo, file, lineId)
+
+            ]).then(result => {
+
+                if (result[0] === 0) return reject("File does not exist.");
+
+                let deletedLine = result[1];
+
+                if (deletedLine === null) return reject("Line does not exist.");
+                if (typeof deletedLine.previous === "undefined") return reject("Line does not follow another.");
+
+                Promise.all([
+
+                    this.server.db.lineGet(repo, file, deletedLine.previous),
+                    this.server.db.lineAfter(repo, file, lineId)
+
+                ]).then(result => {
+
+                    let merger = result[0],
+                        after = result[1];
+
+                    let relocate = () => {};
+                    if (after !== null) relocate = this.server.db.lineSet(repo, file, after.lineId, after.line, merger.lineId);
+
+                    this.log("update", merger.lineId, "relocate", after.lineId, "delete", lineId);
+
+                    Promise.all([
+
+                        this.server.db.lineSet(repo, file, merger.lineId, merger.line + deletedLine.line, null, after != null ? after.lineId : -1),
+                        relocate,
+                        this.server.db.lineRemove(repo, file, lineId)
+
+                    ]).then((/*result*/) => resolve());
+
+                });
+
+
+            });
+
+        });
+
+    }
+
+    getLine(request, repo, file, lineId) {
+
+        return new Promise((resolve, reject) => {
+
+            this.server.db.lineGet(repo, file, lineId).then(line => {
+
+                if (line !== null) resolve({line: line.line, previous: line.previous, next: line.next, lineId: lineId});
+                else reject("Line does not exist.");
+
+            });
+
+        });
+
+    }
 
     //A factory-like way of handling requests, since a client must queue them
     newRequest(json) {
@@ -475,7 +706,7 @@ class Client extends EventEmitter {
     }
 
     //Assert all messages as proper JSON
-    onMessage(data, flags) {
+    onMessage(data) {
 
         data = data.toString();
 
@@ -485,7 +716,7 @@ class Client extends EventEmitter {
         let json;
 
         try {json = JSON.parse(data);}
-        catch (err) {return this.send({id: "onReject", reason: "Invalid JSON.", data: data})};
+        catch (err) {return this.send({id: "onReject", reason: "Invalid JSON.", data: data});}
 
         if (typeof json !== "object" || json instanceof Array) return this.send({id: "onReject", reason: "JSON is not an object.", data: data});
         if (typeof json.id === "undefined") return this.send({id: "onReject", reason: "ID is not defined.", data: data});
@@ -516,9 +747,10 @@ class Client extends EventEmitter {
 
     }
 
-    onClose(code, message) {
+    onClose() {
 
         this.log("Connection closed");
+        this.emit("close", this);
 
     }
 
@@ -545,14 +777,18 @@ class Client extends EventEmitter {
     //Decorate log events with a stamp of the client
     log() {
 
+        /*eslint-disable no-console*/
         console.log(...[colors.green(`[${this.tag}]`), ...arguments]);
+        /*eslint-enable no-console*/
 
     }
 
     //Decorate error events with a stamp of the client
     error() {
 
+        /*eslint-disable no-console*/
         console.error(...[colors.green(`[${this.tag}]`), ...arguments]);
+        /*eslint-enable no-console*/
 
     }
 

@@ -2,6 +2,7 @@
 "use strict";
 
 const EventEmitter = require("events"),
+    colors = require("colors"),
     spawn = require("child_process").spawn,
     MongoClient = require('mongodb').MongoClient;
 
@@ -54,7 +55,7 @@ class MongoDB extends EventEmitter {
 
     processErr(data) {
         this.emit("processError", data);
-        console.error("mongoErr", data.toString());
+        this.error(data);
     }
 
     connectToMongo() {
@@ -79,12 +80,12 @@ class MongoDB extends EventEmitter {
 
                 this.emit("connectError", {config: this.config, url: this.url});
                 // return;
-                console.error(`Error connecting to mongodb at '${this.url}', exiting`)
+                this.error(`Error connecting to mongodb at '${this.url}', exiting`);
                 process.exit(1);
 
             }
 
-            console.log(`Connected to mongod at '${this.url}'`);
+            this.log(`Connected to mongod at '${this.url}'`);
 
             this.db = db;
             this.user = db.collection("user");
@@ -92,12 +93,13 @@ class MongoDB extends EventEmitter {
             this.repo = db.collection("repo");
             this.directory = db.collection("directory");
             this.file = db.collection("file");
+            this.line = db.collection("line");
 
             this.emit("ready", {config: this.config, url: this.url});
 
             this.clean();
 
-        })
+        });
 
     }
 
@@ -148,11 +150,11 @@ class MongoDB extends EventEmitter {
 
     permSet(user, repo, permission) {
         // console.log("Granting", permission, "to", user, "for", repo);
-        return this.permission.insertOne({
-            user: user,
-            repo: repo,
-            permission: permission
-        });
+        return this.permission.updateOne(
+            {user: user, repo: repo},
+            {$set: {permission: permission}},
+            {upsert: true}
+        );
     }
 
     permGet(user, repo) {
@@ -167,9 +169,37 @@ class MongoDB extends EventEmitter {
      ** Directory
      ******************************************************/
 
-    dirCreate(repo, parent, name) {}
-    dirGet(repo, parent, name) {}
-    dirDelete(repo, parent, name) {}
+    dirCreate(repo, path) {
+        return this.directory.insertOne({
+            repo: repo,
+            path: path,
+            contents: []
+        });
+    }
+
+    dirMove(repo, path, newPath) {
+        return this.directory.updateOne({
+            repo: repo,
+            path: path
+        }, {$set: {
+            path: newPath
+        }});
+    }
+
+    dirGet(repo, path) {
+        return this.directory.findOne({repo: repo, path: path});
+    }
+
+    dirDelete(repo, path) {
+        return this.directory.removeOne({
+            repo: repo,
+            path: path
+        });
+    }
+
+    dirExists(repo, path) {
+        return this.directory.find({repo: repo, path: path}, {"_id": 1}).limit(1).count();
+    }
 
     /******************************************************
      ** File
@@ -198,7 +228,22 @@ class MongoDB extends EventEmitter {
         });
     }
 
-    fileGet(repo, path) {}
+    fileGet(repo, path) {
+        return new Promise((resolve, reject) => {
+
+            Promise.all([
+                this.file.findOne({repo: repo, path: path}),
+                this.line.find({repo: repo, path: path}).toArray()
+            ]).then(result => {
+                if (result[0] === null) reject("File does not exist.");
+
+                result[0].lines = result[1];
+                resolve(result[0]);
+
+            });
+
+        });
+    }
 
     fileExists(repo, path) {
         return this.file.find({repo: repo, path: path}, {"_id": 1}).limit(1).count();
@@ -208,9 +253,34 @@ class MongoDB extends EventEmitter {
      ** Line
      ******************************************************/
 
-    lineSet(repo, file, lineId, value) {}
-    lineGet(repo, file, lineId) {}
-    lineRemove(repo, file, lineId) {}
+    lineGet(repo, path, lineId) {
+        return this.line.findOne({repo: repo, path: path, lineId: lineId});
+    }
+
+    lineSet(repo, path, lineId, line, previous, next) {
+
+        let update = {$set: {line: line}};
+
+        if (previous) update.$set.previous = previous;
+        if (next) {
+            if (next === -1) update.$unset.next = "whatever";
+            else update.$set.next = next;
+        }
+
+        return this.line.updateOne(
+            {repo: repo, path: path, lineId: lineId},
+            update,
+            {upsert: true}
+        );
+    }
+
+    lineRemove(repo, path, lineId) {
+        return this.line.removeOne({repo: repo, path: path, lineId: lineId});
+    }
+
+    lineAfter(repo, path, lineId) {
+        return this.line.findOne({repo: repo, path: path, previous: lineId});
+    }
 
     /******************************************************
      ** Misc
@@ -221,6 +291,24 @@ class MongoDB extends EventEmitter {
         this.repo.remove({name: /^temp_/i});
         this.permission.remove({$or: [{user: /^temp_/i}, {repo: /^temp_/i}]});
         this.file.remove({repo: /^temp_/i});
+        this.directory.remove({repo: /^temp_/i});
+        this.line.remove({repo: /^temp_/i});
+    }
+
+    log() {
+
+        /*eslint-disable no-console*/
+        console.log(...[colors.magenta("[MongoDB]"), ...arguments]);
+        /*eslint-enable no-console*/
+
+    }
+
+    error() {
+
+        /*eslint-disable no-console*/
+        console.error(...[colors.magenta("[MongoDB]"), ...arguments]);
+        /*eslint-enable no-console*/
+
     }
 
 }
@@ -266,16 +354,16 @@ class Database extends EventEmitter {
      ******************************************************/
 
     userCreate(name, pass, email) {
-    	return this.db.userCreate(name, pass, email);
+        return this.db.userCreate(name, pass, email);
     }
 
     //Returns all vital stats and all repositories they have access to and their permission level
     userGet(name) {
-    	return this.db.userGet(name);
+        return this.db.userGet(name);
     }
 
     userSetPass(name, pass) {
-    	return this.db.userSetPass(name, pass);
+        return this.db.userSetPass(name, pass);
     }
 
     userSetEmail(name, email) {
@@ -287,17 +375,17 @@ class Database extends EventEmitter {
      ******************************************************/
 
     repoCreate(name, parent) {
-    	return this.db.repoCreate(name, parent);
+        return this.db.repoCreate(name, parent);
     }
 
     //Returns vital stats and all directories and files contained; does not return a list of permissions
     repoGet(name) {
-    	return this.db.repoGet(name);
+        return this.db.repoGet(name);
     }
 
     //Returns users' names and their permissions
     repoGetPerms(name) {
-    	return this.db.repoGet(name);
+        return this.db.repoGet(name);
     }
 
     /******************************************************
@@ -305,32 +393,40 @@ class Database extends EventEmitter {
      ******************************************************/
 
     permSet(user, repo, permission) {
-    	return this.db.permSet(user, repo, permission);
+        return this.db.permSet(user, repo, permission);
     }
 
     permGet(user, repo) {
-    	return this.db.permGet(user, repo);
+        return this.db.permGet(user, repo);
     }
 
     permDelete(user, repo) {
-    	return this.db.permDelete(user, repo);
+        return this.db.permDelete(user, repo);
     }
 
     /******************************************************
      ** Directory
      ******************************************************/
 
-    dirCreate(repo, parent, name) {
-    	return this.db.dirCreate(repo, parent, name);
+    dirCreate(repo, path) {
+        return this.db.dirCreate(repo, path);
+    }
+
+    dirMove(repo, path, newPath) {
+        return this.db.dirMove(repo, path, newPath);
     }
 
     //Returns vital stats and all directories and files contained
-    dirGet(repo, parent, name) {
-    	return this.db.dirGet(repo, parent, name);
+    dirGet(repo, path) {
+        return this.db.dirGet(repo, path);
     }
 
-    dirDelete(repo, parent, name) {
-    	return this.db.dirDelete(repo, parent, name);
+    dirDelete(repo, path) {
+        return this.db.dirDelete(repo, path);
+    }
+
+    dirExists(repo, path) {
+        return this.db.dirExists(repo, path);
     }
 
     /******************************************************
@@ -338,20 +434,20 @@ class Database extends EventEmitter {
      ******************************************************/
 
     fileCreate(repo, path) {
-    	return this.db.fileCreate(repo, path);
+        return this.db.fileCreate(repo, path);
     }
 
     fileMove(repo, path, newPath) {
-    	return this.db.fileMove(repo, path, newPath);
+        return this.db.fileMove(repo, path, newPath);
     }
 
     fileDelete(repo, path) {
-    	return this.db.fileDelete(repo, path);
+        return this.db.fileDelete(repo, path);
     }
 
     //Returns vital stats and the file contents
     fileGet(repo, path) {
-    	return this.db.fileGet(repo, path);
+        return this.db.fileGet(repo, path);
     }
 
     fileExists(repo, path) {
@@ -362,16 +458,20 @@ class Database extends EventEmitter {
      ** Line
      ******************************************************/
 
-    lineSet(repo, file, lineId, value) {
-    	return this.db.lineSet(file, lineId, value);
+    lineSet(repo, path, lineId, line, previous, next) {
+        return this.db.lineSet(repo, path, lineId, line, previous, next);
     }
 
-    lineGet(repo, file, lineId) {
-    	return this.db.lineGet(file, lineId);
+    lineGet(repo, path, lineId) {
+        return this.db.lineGet(repo, path, lineId);
     }
 
-    lineRemove(repo, file, lineId) {
-    	return this.db.lineRemove(file, lineId);
+    lineRemove(repo, path, lineId) {
+        return this.db.lineRemove(repo, path, lineId);
+    }
+
+    lineAfter(repo, path, lineId) {
+        return this.db.lineAfter(repo, path, lineId);
     }
 
     /******************************************************
