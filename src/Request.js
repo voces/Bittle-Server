@@ -32,7 +32,7 @@ class Request extends EventEmitter {
 
             switch (this.json.id) {
 
-                case "clean": this.client.server.db.clean(); this.finish(); break;
+                case "clean": this.client.server.clean(); this.finish(); break;
 
                 case "register": this.enforceParamsThenCall({name: "string", pass: "string"}, this.client.register.bind(this.client)); break;
                 case "login": this.enforceParamsThenCall({name: "string", pass: "string"}, this.client.login.bind(this.client)); break;
@@ -69,14 +69,14 @@ class Request extends EventEmitter {
                 case "deleteRepo": this.enforceParamsAndAccessThenCall({repo: "string"}, "owner", this.client.deleteRepo.bind(this.client)); break;
                 case "deleteRepoConfirm": this.enforceParamsThenCall({key: "number"}, this.client.deleteRepoConfirm.bind(this.client)); break;
 
-                //Permissions
-                case "setPermission":
+                //Roles
+                case "setRole":
                     this.enforceParamsAndAccessThenCall({repo: "string", user: "string", role: "string"}, "manager",
-                        this.client.addPermission.bind(this.client));
+                        this.client.setRole.bind(this.client));
                     break;
 
-                case "deletePermission":
-                    this.enforceParamsAndAccessThenCall({repo: "string", user: "string"}, "manager", this.client.deletePermission.bind(this.client));
+                case "deleteRole":
+                    this.enforceParamsAndAccessThenCall({repo: "string", user: "string"}, "manager", this.client.deleteRole.bind(this.client));
                     break;
 
                 //Files
@@ -177,13 +177,11 @@ class Request extends EventEmitter {
         let params = this.enforceParams(paramTypes);
         if (!params) return;
 
-        this.client.server.db.permGet(this.client.name, this.json.repo).then(perm => {
+        this.client.server.getRepo(this.json.repo).getRole(this.client.name).then(role => {
 
-            // console.log(perm ? perm.permission : "none", access);
+            if (PERMISSIONS.indexOf(role) > PERMISSIONS.indexOf(access)) return this.fail("Not enough permission.");
 
-            if (!perm || PERMISSIONS.indexOf(perm.permission) > PERMISSIONS.indexOf(access)) return this.fail("Not enough permission.");
-
-            this.access = perm.permission;
+            this.role = role;
 
             callback(this, ...params).then(
                 result => this.finish(result),

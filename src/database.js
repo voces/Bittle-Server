@@ -89,7 +89,7 @@ class MongoDB extends EventEmitter {
 
             this.db = db;
             this.user = db.collection("user");
-            this.permission = db.collection("permission");
+            this.role = db.collection("role");
             this.repo = db.collection("repo");
             this.directory = db.collection("directory");
             this.file = db.collection("file");
@@ -111,7 +111,9 @@ class MongoDB extends EventEmitter {
         return this.user.insertOne({
             name: name,
             pass: pass,
-            email: email
+            email: email,
+            created: Date.now(),
+            updated: Date.now()
         });
     }
 
@@ -120,11 +122,11 @@ class MongoDB extends EventEmitter {
     }
 
     userSetPass(name, pass) {
-        return this.user.updateOne({name: name}, {$set:{pass: pass}});
+        return this.user.updateOne({name: name}, {$set:{pass: pass, updated: Date.now()}});
     }
 
     userSetEmail(name, email) {
-        return this.user.updateOne({name: name}, {$set:{email: email}});
+        return this.user.updateOne({name: name}, {$set:{email: email, updated: Date.now()}});
     }
 
     /******************************************************
@@ -134,7 +136,9 @@ class MongoDB extends EventEmitter {
     repoCreate(name, parent) {
         return this.repo.insertOne({
             name: name,
-            parent: parent
+            parent: parent,
+            created: Date.now(),
+            updated: Date.now()
         });
     }
 
@@ -145,24 +149,29 @@ class MongoDB extends EventEmitter {
     // repoDelete(name) {}
 
     /******************************************************
-     ** Permission
+     ** Role
      ******************************************************/
 
-    permSet(user, repo, permission) {
-        // console.log("Granting", permission, "to", user, "for", repo);
-        return this.permission.updateOne(
+    roleSet(user, repo, role, listen) {
+
+        let update = {$set: {updated: Date.now()}};
+
+        if (typeof role !== "undefined") update.$set.role = role;
+        if (typeof listenType !== "undefined") update.$set.listen = listen;
+
+        return this.role.updateOne(
             {user: user, repo: repo},
-            {$set: {permission: permission}},
+            update,
             {upsert: true}
         );
     }
 
-    permGet(user, repo) {
-        return this.permission.findOne({user: user, repo: repo});
+    roleGet(user, repo) {
+        return this.role.findOne({user: user, repo: repo});
     }
 
-    permDelete(user, repo) {
-        return this.permission.deleteOne({user: user, repo: repo});
+    roleDelete(user, repo) {
+        return this.role.deleteOne({user: user, repo: repo});
     }
 
     /******************************************************
@@ -173,7 +182,9 @@ class MongoDB extends EventEmitter {
         return this.directory.insertOne({
             repo: repo,
             path: path,
-            contents: []
+            contents: [],
+            created: Date.now(),
+            updated: Date.now()
         });
     }
 
@@ -182,7 +193,8 @@ class MongoDB extends EventEmitter {
             repo: repo,
             path: path
         }, {$set: {
-            path: newPath
+            path: newPath,
+            updated: Date.now()
         }});
     }
 
@@ -205,11 +217,25 @@ class MongoDB extends EventEmitter {
      ** File
      ******************************************************/
 
-    fileCreate(repo, path) {
-        return this.file.insertOne({
-            repo: repo,
-            path: path
-        });
+    fileCreate(repo, path, initialLineId) {
+        return new Promise(resolve => {
+            Promise.all([
+                this.file.insertOne({
+                    repo: repo,
+                    path: path,
+                    lowerPath: path.toLowerCase(),
+                    created: Date.now(),
+                    updated: Date.now()
+                }),
+                this.line.insertOne({
+                    repo: repo,
+                    lowerPath: path.toLowerCase(),
+                    lineId: initialLineId,
+                    line: ""
+                })
+            ]).then(result => resolve({file: result[0], line: result[1]}));
+
+        }).catch(error => this.error(error));
     }
 
     fileMove(repo, path, newPath) {
@@ -217,7 +243,8 @@ class MongoDB extends EventEmitter {
             repo: repo,
             path: path
         }, {$set: {
-            path: newPath
+            path: newPath,
+            updated: Date.now()
         }});
     }
 
@@ -232,8 +259,8 @@ class MongoDB extends EventEmitter {
         return new Promise((resolve, reject) => {
 
             Promise.all([
-                this.file.findOne({repo: repo, path: path}),
-                this.line.find({repo: repo, path: path}).toArray()
+                this.file.findOne({repo: repo, lowerPath: path.toLowerCase()}),
+                this.line.find({repo: repo, lowerPath: path.toLowerCase()}).toArray()
             ]).then(result => {
                 if (result[0] === null) reject("File does not exist.");
 
@@ -246,7 +273,7 @@ class MongoDB extends EventEmitter {
     }
 
     fileExists(repo, path) {
-        return this.file.find({repo: repo, path: path}, {"_id": 1}).limit(1).count();
+        return this.file.find({repo: repo, lowerPath: path.toLowerCase()}, {"_id": 1}).limit(1).count();
     }
 
     /******************************************************
@@ -254,12 +281,12 @@ class MongoDB extends EventEmitter {
      ******************************************************/
 
     lineGet(repo, path, lineId) {
-        return this.line.findOne({repo: repo, path: path, lineId: lineId});
+        return this.line.findOne({repo: repo, lowerPath: path.toLowerCase(), lineId: lineId});
     }
 
     lineSet(repo, path, lineId, line, previous, next) {
 
-        let update = {$set: {line: line}};
+        let update = {$set: {line: line, updated: Date.now()}};
 
         if (previous) update.$set.previous = previous;
         if (next) {
@@ -268,18 +295,18 @@ class MongoDB extends EventEmitter {
         }
 
         return this.line.updateOne(
-            {repo: repo, path: path, lineId: lineId},
+            {repo: repo, lowerPath: path.toLowerCase(), lineId: lineId},
             update,
             {upsert: true}
         );
     }
 
     lineRemove(repo, path, lineId) {
-        return this.line.removeOne({repo: repo, path: path, lineId: lineId});
+        return this.line.removeOne({repo: repo, lowerPath: path.toLowerCase(), lineId: lineId});
     }
 
     lineAfter(repo, path, lineId) {
-        return this.line.findOne({repo: repo, path: path, previous: lineId});
+        return this.line.findOne({repo: repo, lowerPath: path.toLowerCase(), previous: lineId});
     }
 
     /******************************************************
@@ -289,7 +316,7 @@ class MongoDB extends EventEmitter {
     clean() {
         this.user.remove({name: /^temp_/i});
         this.repo.remove({name: /^temp_/i});
-        this.permission.remove({$or: [{user: /^temp_/i}, {repo: /^temp_/i}]});
+        this.role.remove({$or: [{user: /^temp_/i}, {repo: /^temp_/i}]});
         this.file.remove({repo: /^temp_/i});
         this.directory.remove({repo: /^temp_/i});
         this.line.remove({repo: /^temp_/i});
@@ -357,7 +384,7 @@ class Database extends EventEmitter {
         return this.db.userCreate(name, pass, email);
     }
 
-    //Returns all vital stats and all repositories they have access to and their permission level
+    //Returns all vital stats and all repositories they have access to and their role level
     userGet(name) {
         return this.db.userGet(name);
     }
@@ -378,30 +405,30 @@ class Database extends EventEmitter {
         return this.db.repoCreate(name, parent);
     }
 
-    //Returns vital stats and all directories and files contained; does not return a list of permissions
+    //Returns vital stats and all directories and files contained; does not return a list of roles
     repoGet(name) {
         return this.db.repoGet(name);
     }
 
-    //Returns users' names and their permissions
+    //Returns users' names and their roles
     repoGetPerms(name) {
         return this.db.repoGet(name);
     }
 
     /******************************************************
-     ** Permission
+     ** Role
      ******************************************************/
 
-    permSet(user, repo, permission) {
-        return this.db.permSet(user, repo, permission);
+    roleSet(user, repo, role, listen) {
+        return this.db.roleSet(user, repo, role, listen);
     }
 
-    permGet(user, repo) {
-        return this.db.permGet(user, repo);
+    roleGet(user, repo) {
+        return this.db.roleGet(user, repo);
     }
 
-    permDelete(user, repo) {
-        return this.db.permDelete(user, repo);
+    roleDelete(user, repo) {
+        return this.db.roleDelete(user, repo);
     }
 
     /******************************************************
@@ -433,8 +460,8 @@ class Database extends EventEmitter {
      ** File
      ******************************************************/
 
-    fileCreate(repo, path) {
-        return this.db.fileCreate(repo, path);
+    fileCreate(repo, path, initialLineId) {
+        return this.db.fileCreate(repo, path, initialLineId);
     }
 
     fileMove(repo, path, newPath) {

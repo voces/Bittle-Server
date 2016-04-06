@@ -4,11 +4,108 @@
 const EventEmitter = require("events"),
     fs = require("fs"),
     https = require("https"),
+    tls = require("tls"),
     ws = require("ws"),
     async = require("async"),
     colors = require("colors"),
 
-    Client = require("./Client");
+    Client = require("./Client"),
+    Repo = require("./Repo");
+
+function convertCAFile(fileContents) {
+
+    fileContents = fileContents.toString().split("-----BEGIN CERTIFICATE-----");
+    for (let i = 0; i < fileContents.length; i++)
+        fileContents[i] = "-----BEGIN CERTIFICATE-----" + fileContents[i];
+
+    fileContents.shift();
+
+}
+
+class RawSecureServer extends EventEmitter {
+
+    constructor(config) {
+
+        super();
+
+        this.config = config;
+
+        //Load the keys in parallel
+        async.parallel({
+            key: callback => fs.readFile(config.key, callback),
+            cert: callback => fs.readFile(config.cert, callback),
+            ca: callback => fs.readFile(config.ca, callback)
+        }, (err, results) => {
+
+            //If the keys fail to load, kill the process
+            if (err) {
+
+                this.error(err);
+                process.exit(1);
+
+            }
+
+            results.ca = convertCAFile(results.ca);
+
+            // console.log("Loaded https keys");
+
+            // console.log(`Starting https/wss server on port '${config.port}'`)
+
+            //Spawn an HTTPS server
+            this.server = tls.createServer({
+                key: results.key,
+                cert: results.cert,
+                ca: results.ca
+            }).listen(config.port);
+
+            //Add some properties to the socket for easy access, then re-emit
+            //  the event
+            this.server.on("secureConnection", socket => {
+
+                this.log("RSS connection");
+
+                socket.ip = socket.remoteAddress;
+                socket.family = socket.remoteFamily;
+                socket.port = socket.remotePort;
+
+                socket.on("data", e => socket.emit("message", e));
+                socket.send = socket.write;
+
+                socket.on("error", e => {
+                    this.error(e);
+                });
+
+                this.emit("connection", socket);
+
+            });
+
+            this.log(`Started wss server on port '${config.port}'`);
+
+            this.emit("start", config);
+
+        });
+
+    }
+
+    //Decorate log events with a stamp of the client
+    log() {
+
+        /*eslint-disable no-console*/
+        console.log(...[colors.green("[RSS]"), ...arguments]);
+        /*eslint-enable no-console*/
+
+    }
+
+    //Decorate error events with a stamp of the client
+    error() {
+
+        /*eslint-disable no-console*/
+        console.error(...[colors.green("[RSS]"), ...arguments]);
+        /*eslint-enable no-console*/
+
+    }
+
+}
 
 class WSS extends EventEmitter {
 
@@ -24,6 +121,7 @@ class WSS extends EventEmitter {
         async.parallel({
             key: callback => fs.readFile(config.key, callback),
             cert: callback => fs.readFile(config.cert, callback),
+            ca: callback => fs.readFile(config.ca, callback)
         }, (err, results) => {
 
             //If the keys fail to load, kill the process
@@ -34,6 +132,8 @@ class WSS extends EventEmitter {
 
             }
 
+            results.ca = convertCAFile(results.ca);
+
             // console.log("Loaded https keys");
 
             // console.log(`Starting https/wss server on port '${config.port}'`)
@@ -41,7 +141,8 @@ class WSS extends EventEmitter {
             //Spawn an HTTPS server
             this.https = https.createServer({
                 key: results.key,
-                cert: results.cert
+                cert: results.cert,
+                ca: results.ca
 
             //This part only exists to make accepting the certficate easier
             }, (req, res) => {
@@ -106,6 +207,8 @@ class Server extends EventEmitter {
         this.servers = [];
         this.clients = [];
 
+        this.repos = {};
+
         this.db = null;
 
     }
@@ -133,6 +236,29 @@ class Server extends EventEmitter {
     removeClient(client) {
 
         this.clients.splice(this.clients.indexOf(client), 1);
+        delete this.clients[this.clients.name];
+
+    }
+
+    getRepo(repoName) {
+
+        let repo = this.repos[repoName];
+
+        if (typeof repo === "undefined") {
+            repo = new Repo(this, repoName);
+            this.repos[repoName] = repo;
+        }
+
+        return repo;
+
+    }
+
+    clean() {
+
+        this.db.clean();
+
+        for (let name in this.repos)
+            if (name.match(/temp_/i)) delete this.repos[name];
 
     }
 
@@ -152,6 +278,10 @@ class Server extends EventEmitter {
 
                 case "wss":
                     this.addServer(new WSS(config[i]));
+                    break;
+
+                case "rss":
+                    this.addServer(new RawSecureServer(config[i]));
                     break;
 
             }

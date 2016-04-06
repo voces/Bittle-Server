@@ -5,10 +5,8 @@ const EventEmitter = require("events"),
     colors = require("colors"),
     bcrypt = require("bcryptjs"),
 
-    Request = require("./Request"),
-    // Key = require("./Key"),
-
-    PERMISSIONS = ["owner", "manager", "contributor", "observer", "none"];
+    Request = require("./Request");
+    // Key = require("./Key");
 
 class Client extends EventEmitter {
 
@@ -83,12 +81,12 @@ class Client extends EventEmitter {
                     return;
                 }
 
-                this.server.db.userCreate(name, hash, request.json.email).then(
-                    (/*result*/) => resolve(),
-                    error => {this.error(error); reject("Unable write to database.");}
-                );
+                this.server.db.userCreate(name, hash, request.json.email).then(() => {
+                    this.log(`Registered '${name}'`);
+                    resolve();
+                });
 
-            }, error => {this.error(error); reject("Unable to query database.");});
+            });
 
         });
 
@@ -106,6 +104,10 @@ class Client extends EventEmitter {
                 this.originaName = user.name;
                 this.email = user.email;
 
+                this.server.clients[name] = this;
+
+                this.log(`Logged in as '${this.name}'`);
+
                 resolve();
 
             }, badCredentials => reject(badCredentials));
@@ -118,7 +120,11 @@ class Client extends EventEmitter {
 
         return new Promise((resolve/*, reject*/) => {
 
+            this.log(`Logged out from '${this.name}'`);
+
             this.authenticated = false;
+
+            delete this.server.clients[this.name];
 
             this.name = undefined;
             this.originaName = undefined;
@@ -269,29 +275,7 @@ class Client extends EventEmitter {
     }
 
     createRepo(request, name) {
-
-        return new Promise((resolve, reject) => {
-
-            this.server.db.repoGet(name).then(repo => {
-
-                if (repo) return reject("Name is already taken.");
-
-                Promise.all([
-
-                    this.server.db.repoCreate(name),
-                    this.server.db.permSet(this.name, name, "owner")
-
-                ]).then(
-
-                    (/*result*/) => resolve(),
-                    (/*error*/) => reject("Uncaught server error.")
-
-                );
-
-            }, error => {this.error(error); reject("Unable to query database.");});
-
-        });
-
+        return this.server.getRepo(name).create(this.name);
     }
 
     deleteRepo(/*request, name*/) {
@@ -322,134 +306,36 @@ class Client extends EventEmitter {
 
     }
 
-    addPermission(request, repoName, userName, role) {
-
-        return new Promise((resolve, reject) => {
-
-            if (PERMISSIONS.indexOf(role) < 0)
-                return reject("Role does not exist.");
-
-            if (PERMISSIONS.indexOf(role) < PERMISSIONS.indexOf(request.access))
-                return reject("Not enough permission.");
-
-            Promise.all([
-
-                this.server.db.userGet(userName),
-                this.server.db.repoGet(repoName),
-                this.server.db.permGet(userName, repoName)
-
-            ]).then(result => {
-
-                let user = result[0][0],
-                    repo = result[1],
-                    permRecord = result[2];
-
-                if (!user) return reject("User does not exist.");
-                if (!repo) return reject("Repo does not exist.");
-
-                if (permRecord && PERMISSIONS.indexOf(permRecord.permission) <= PERMISSIONS.indexOf(request.access))
-                    return reject("User has equal or greater permission.");
-
-                if (!permRecord && role === "none")
-                    return reject("User does not have any permission.");
-
-                this.log(role === "none" ? "permDelete" : "permSet", userName, repoName, role);
-                this.server.db[role === "none" ? "permDelete" : "permSet"](userName, repoName, role).then(
-
-                    (/*result*/) => resolve(),
-                    (/*error*/) => reject("Uncaught server error.")
-
-                );
-
-            }, error => {this.error(error); reject("Uncaught server error.");});
-
-        });
-
+    setRole(request, repoName, userName, role) {
+        return this.server.getRepo(repoName).setRole(this, request.role, userName, role);
     }
 
-    deletePermission(request, repoName, userName) {
-        return this.addPermission(request, repoName, userName, "none");
-
+    deleteRole(request, repoName, userName) {
+        return this.setRole(request, repoName, userName, "none");
     }
 
-    createFile(request, repo, path) {
-
-        return new Promise((resolve, reject) => {
-
-            this.server.db.fileExists(repo, path).then(result => {
-
-                if (result > 0) return reject("File already exists.");
-
-                this.server.db.fileCreate(repo, path).then(
-                    (/*result*/) => resolve(),
-                    (/*error*/) => reject("Uncaught server error.")
-                );
-
-            }, (/*error*/) => reject("Uncaught server error."));
-        });
+    createFile(request, repo, filePath) {
+        return this.server.getRepo(repo).createFile(filePath, typeof request.initialLineId === "undefined" ? "0" : request.initialLineId);
     }
 
-    moveFile(request, repo, file, newPath) {
-
-        return new Promise((resolve, reject) => {
-
-            this.server.db.fileExists(repo, file).then(result => {
-
-                if (result === 0) return reject("File does not exist.");
-
-                this.server.db.fileMove(repo, file, newPath).then(
-                    (/*result*/) => resolve(),
-                    (/*error*/) => reject("Uncaught server error.")
-                );
-
-            }, (/*error*/) => reject("Uncaught server error."));
-        });
+    moveFile(request, repo, oldPath, newPath) {
+        return this.server.getRepo(repo).moveFile(oldPath, newPath);
     }
 
-    deleteFile(request, repo, file) {
-
-        return new Promise((resolve, reject) => {
-
-            this.server.db.fileExists(repo, file).then(result => {
-
-                if (result === 0) return reject("File does not exist.");
-
-                this.server.db.fileDelete(repo, file).then(
-                    (/*result*/) => resolve(),
-                    (/*error*/) => reject("Uncaught server error.")
-                );
-
-            }, (/*error*/) => reject("Uncaught server error."));
-        });
+    deleteFile(request, repo, filePath) {
+        return this.server.getRepo(repo).deleteFile(filePath);
     }
 
-    getFile(request, repo, path) {
-
-        return new Promise((resolve, reject) => {
-
-            this.server.db.fileGet(repo, path).then(file => {
-
-                this.log(file);
-
-                let returnFile = {
-                    repo: file.repo,
-                    path: file.path,
-                    lines: []
-                };
-
-                for (let i = 0; i < file.lines.length; i++)
-                    returnFile.lines[i] = {lineId: file.lines[i].lineId, line: file.lines[i].line};
-
-                resolve(returnFile);
-
-            }, error => reject(error));
-
-        });
+    getFile(request, repo, filePath) {
+        return this.server.getRepo(repo).getFile(filePath);
     }
 
     createDirectory(request, repo, directory) {
 
         return new Promise((resolve, reject) => {
+
+            directory = directory.replace(/\\/g, "/");
+            if (directory.slice(-1) === "/") directory = directory.slice(0, -1);
 
             this.server.db.dirExists(repo, directory).then(result => {
 
@@ -468,6 +354,12 @@ class Client extends EventEmitter {
 
         return new Promise((resolve, reject) => {
 
+            directory = directory.replace(/\\/g, "/");
+            if (directory.slice(-1) === "/") directory = directory.slice(0, -1);
+
+            newPath = newPath.replace(/\\/g, "/");
+            if (newPath.slice(-1) === "/") newPath = newPath.slice(0, -1);
+
             this.server.db.dirExists(repo, directory).then(result => {
 
                 if (result === 0) return reject("Directory does not exist.");
@@ -485,6 +377,9 @@ class Client extends EventEmitter {
 
         return new Promise((resolve, reject) => {
 
+            directory = directory.replace(/\\/g, "/");
+            if (directory.slice(-1) === "/") directory = directory.slice(0, -1);
+
             this.server.db.dirExists(repo, directory).then(result => {
 
                 if (result === 0) return reject("Directory does not exist.");
@@ -498,37 +393,15 @@ class Client extends EventEmitter {
         });
     }
 
-    lineInsert(request, repo, file, lineId, column, data) {
-
-        return new Promise((resolve, reject) => {
-
-            Promise.all([
-
-                this.server.db.fileExists(repo, file),
-                this.server.db.lineGet(repo, file, lineId)
-
-            ]).then(result => {
-
-                if (result[0] === 0) return reject("File does not exist.");
-
-                let line = result[1];
-
-                if (line === null) line = "";
-                else line = line.line;
-
-                this.server.db.lineSet(repo, file, lineId, line.slice(0, column) + data + line.slice(column)).then(
-                    (/*result*/) => resolve(),
-                    (/*error*/) => reject("Uncaught server error.")
-                );
-
-            });
-
-        });
+    lineInsert(request, repo, filePath, lineId, column, data) {
+        return this.server.getRepo(repo).insert(filePath, lineId, column, data);
     }
 
     lineErase(request, repo, file, lineId, column, count) {
 
         return new Promise((resolve, reject) => {
+
+            file = file.replace(/\\/g, "/");
 
             Promise.all([
 
@@ -559,6 +432,8 @@ class Client extends EventEmitter {
 
         return new Promise((resolve, reject) => {
 
+            file = file.replace(/\\/g, "/");
+
             Promise.all([
 
                 this.server.db.fileExists(repo, file),
@@ -584,7 +459,7 @@ class Client extends EventEmitter {
                     this.server.db.lineSet(repo, file, lineId, oldLine.slice(0, column), null, newLineId),
                     this.server.db.lineSet(repo, file, newLineId, oldLine.slice(column), lineId)
 
-                ]).then(result => resolve());
+                ]).then(() => resolve());
 
             });
 
@@ -593,6 +468,8 @@ class Client extends EventEmitter {
     }
 
     lineMerge(request, repo, file, lineId) {
+
+        file = file.replace(/\\/g, "/");
 
         return new Promise((resolve, reject) => {
 
@@ -623,8 +500,6 @@ class Client extends EventEmitter {
                     let relocate = () => {};
                     if (after !== null) relocate = this.server.db.lineSet(repo, file, after.lineId, after.line, merger.lineId);
 
-                    this.log("update", merger.lineId, "relocate", after.lineId, "delete", lineId);
-
                     Promise.all([
 
                         this.server.db.lineSet(repo, file, merger.lineId, merger.line + deletedLine.line, null, after != null ? after.lineId : -1),
@@ -642,18 +517,21 @@ class Client extends EventEmitter {
 
     }
 
-    getLine(request, repo, file, lineId) {
-
-        return new Promise((resolve, reject) => {
-
-            this.server.db.lineGet(repo, file, lineId).then(line => {
-
-                if (line !== null) resolve({line: line.line, previous: line.previous, next: line.next, lineId: lineId});
-                else reject("Line does not exist.");
-
-            });
-
-        });
+    getLine(request, repo, filePath, lineId) {
+        return this.server.getRepo(repo).getLine(filePath, lineId);
+        
+        // file = file.replace(/\\/g, "/");
+        //
+        // return new Promise((resolve, reject) => {
+        //
+        //     this.server.db.lineGet(repo, file, lineId).then(line => {
+        //
+        //         if (line !== null) resolve({line: line.line, previous: line.previous, next: line.next, lineId: lineId});
+        //         else reject("Line does not exist.");
+        //
+        //     });
+        //
+        // });
 
     }
 
