@@ -7,21 +7,6 @@ const EventEmitter = require("events"),
 
     PERMISSIONS = ["owner", "manager", "contributor", "observer", "none"];
 
-function findLine(file, lineId) {
-
-    for (let i = 0; i < file.lines.length; i++)
-        if (file.lines[i].lineId === lineId) {
-            if (i > 5) {
-                file.lines.unshift(file.lines.splice(i, 1));
-                i = 0;
-            }
-            return file.lines[i];
-        }
-
-    return null;
-
-}
-
 class Repo extends EventEmitter {
 
     constructor(server, repo) {
@@ -65,6 +50,18 @@ class Repo extends EventEmitter {
                 resolve();
 
             });
+
+        });
+
+    }
+
+    listFiles(regexp) {
+
+        return this.wait((resolve, reject) => {
+
+            if (this.db === null) return reject("Repo does not exist.");
+
+            this.server.db.filesGet(this.name, regexp).then(files => resolve({files: files}));
 
         });
 
@@ -211,6 +208,12 @@ class Repo extends EventEmitter {
                 if (oldFile === null) return reject("File does not exist.");
                 if (newFile !== null) return reject("File already exists.");
 
+                this.files[newPath] = oldFile;
+                this.files[oldPath] = null;
+
+                oldFile.version++;
+                oldFile.updated = Date.now();
+
                 this.log(`File '${oldFile}' moved to '${newFile}' inside repo '${this.name}'`);
 
                 this.server.db.fileMove(this.name, oldPath, newPath).then(() => resolve());
@@ -233,7 +236,7 @@ class Repo extends EventEmitter {
 
                 if (file === null) return reject("File does not exist.");
 
-                this.log(`File '${oldFile}' deleted from repo '${this.name}'`);
+                this.log(`File '${filePath}' deleted from repo '${this.name}'`);
 
                 this.server.db.fileDelete(this.name, filePath).then(() => {
                     this.files[filePath] = null;
@@ -251,11 +254,11 @@ class Repo extends EventEmitter {
 
         return this.waitFile(filePath, (resolve, reject) => {
 
-            if (this.file === null) reject("File does not exist.");
+            if (this.file === null) return reject("File does not exist.");
 
-            let line = findLine(this.file, lineId);
+            let line = this.file.lines[lineId];
 
-            if (!line) reject("Line does not exist.");
+            if (!line) return reject("Line does not exist.");
 
             resolve({
                 line: line.line,
@@ -272,17 +275,129 @@ class Repo extends EventEmitter {
 
         return this.waitFile(filePath, (resolve, reject) => {
 
-            if (this.file === null) reject("File does not exist.");
+            if (this.file === null) return reject("File does not exist.");
 
-            let line = findLine(this.file, lineId);
+            let line = this.file.lines[lineId];
 
-            if (!line) reject("Line does not exist.");
+            if (!line) return reject("Line does not exist.");
 
             line.line = line.line.slice(0, column) + data + line.line.slice(column);
 
+            line.version++; this.file.version++;
+            line.updated = this.file.updated = Date.now();
+
             this.server.db.lineSet(this.name, filePath, lineId, line.line).then(() => resolve());
 
-        })
+        });
+
+    }
+
+    erase(filePath, lineId, column, deleteCount) {
+
+        return this.waitFile(filePath, (resolve, reject) => {
+
+            if (this.file === null) return reject("File does not exist.");
+
+            let line = this.file.lines[lineId];
+
+            if (!line) return reject("Line does not exist.");
+
+            line.line = line.line.slice(0, column) + line.line.slice(deleteCount + column);
+
+            line.version++; this.file.version++;
+            line.updated = this.file.updated = Date.now();
+
+            this.server.db.lineSet(this.name, filePath, lineId, line.line).then(() => resolve());
+
+        });
+
+    }
+
+    split(filePath, lineId, column, newLineId) {
+
+        return this.waitFile(filePath, (resolve, reject) => {
+
+            if (this.file === null) return reject("File does not exist.");
+
+            let oldLine = this.file.lines[lineId],
+                newLine = this.file.lines[newLineId];
+
+            if (!oldLine) return reject("Line does not exist.");
+            if (newLine) return reject("Line already exists.");
+
+            if (column === -1) column = oldLine.line.length;
+
+            newLine = {
+                line: oldLine.line.slice(column),
+                lineId: newLineId,
+                previous: lineId,
+                next: oldLine.next,
+                version: 0
+            };
+
+            this.file.lines[newLineId] = newLine;
+
+            oldLine.line = oldLine.line.slice(0, column);
+            oldLine.next = newLineId;
+
+            oldLine.version++; this.file.version += 2;
+            oldLine.updated = newLine.updated = this.file.updated = Date.now();
+
+            Promise.all([
+
+                this.server.db.lineSet(this.name, filePath, lineId, oldLine.line, null, newLineId),
+                this.server.db.lineSet(this.name, filePath, newLineId, newLine.line, lineId, newLine.next)
+
+            ]).then(() => resolve());
+
+        });
+
+    }
+
+    merge(filePath, lineId) {
+
+        return this.waitFile(filePath, (resolve, reject) => {
+
+            if (this.file === null) return reject("File does not exist.");
+
+            let line = this.file.lines[lineId],
+                prevLine, nextLine,
+                relocate = () => {};
+
+            if (!line) return reject("Line does not exist.");
+            if (!line.previous) return reject("Line does not follow another.");
+
+            prevLine = this.file.lines[line.previous];
+
+            prevLine.line += line.line;
+
+            if (line.next) {
+                nextLine = this.file.lines[line.next];
+                nextLine.previous = prevLine.lineId;
+                prevLine.next = nextLine.lineId;
+
+                relocate = this.server.db.lineSet(this.name, filePath, nextLine.lineId, nextLine.previous);
+
+                nextLine.version++; this.file.version++;
+                nextLine.updated = Date.now();
+
+            } else prevLine.next = -1;
+
+            prevLine.version++; this.file.version += 2;
+            prevLine.updated = this.file.updated = Date.now();
+
+            Promise.all([
+
+                this.server.db.lineSet(this.name, filePath, prevLine.lineId, prevLine.line, null, prevLine.next),
+                relocate,
+                this.server.db.lineRemove(this.name, filePath, lineId)
+
+            ]).then((/*result*/) => {
+                delete this.file.lines[lineId];
+                resolve();
+            });
+
+        });
 
     }
 

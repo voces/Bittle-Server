@@ -159,7 +159,7 @@ let tester = new Tester([
     // [{id: "logout"}, {id: "logout", status: "closed"}, true],
     // [{id: "login", name: "temp_1", pass: "passphrase"}, {id: "login", status: "closed"}, true],
 
-    //Directories
+    //Directories (depreciated)
     // [{id: "createDirectory", repo: "temp_1", directory: "sample"}, {id: "createDirectory", status: "closed"}],
     // [{id: "createDirectory", repo: "temp_1", directory: "sample"}, {id: "createDirectory", status: "failed", reason: "Directory already exists."}],
     // [{id: "moveDirectory", repo: "temp_1", directory: "magic", newPath: "magic"},
@@ -173,26 +173,28 @@ let tester = new Tester([
         {id: "insert", status: "failed", reason: "File does not exist."}],
     [{id: "insert", repo: "temp_1", file: "sample.txt", lineId: "0", col: 0, data: "Hello World"}, {id: "insert", status: "closed"}],
     [{id: "getLine", repo: "temp_1", file: "sample.txt", lineId: "0"}, {id: "getLine", status: "closed", line: "Hello World"}],
-    // [{id: "erase", repo: "temp_1", file: "sample.txt", lineId: "0", col: 5, count: 1}, {id: "erase", status: "closed"}],
-    // [{id: "getLine", repo: "temp_1", file: "sample.txt", lineId: "0"}, {id: "getLine", status: "closed", line: "HelloWorld"}],
-    // [{id: "split", repo: "temp_1", file: "sample.txt", lineId: "0", col: 5, newLineId: "1"}, {id: "split", status: "closed"}],
-    // [{id: "getLine", repo: "temp_1", file: "sample.txt", lineId: "0"}, {id: "getLine", status: "closed", line: "Hello"}],
-    // [{id: "getLine", repo: "temp_1", file: "sample.txt", lineId: "1"}, {id: "getLine", status: "closed", line: "World"}],
-    // [{id: "split", repo: "temp_1", file: "sample.txt", lineId: "1", col: -1, newLineId: "2"}, {id: "split", status: "closed"}],
-    // [{id: "getLine", repo: "temp_1", file: "sample.txt", lineId: "1"}, {id: "getLine", status: "closed", line: "World", next: "2"}],
-    // [{id: "getLine", repo: "temp_1", file: "sample.txt", lineId: "2"}, {id: "getLine", status: "closed", line: "", previous: "1"}],
-    // [{id: "merge", repo: "temp_1", file: "sample.txt", lineId: "1"}, {id: "merge", status: "closed"}],
-    // [{id: "getLine", repo: "temp_1", file: "sample.txt", lineId: "0"}, {id: "getLine", status: "closed", line: "HelloWorld", next: "2"}],
-    // [{id: "getLine", repo: "temp_1", file: "sample.txt", lineId: "1"}, {id: "getLine", status: "failed", reason: "Line does not exist."}],
-    // [{id: "getLine", repo: "temp_1", file: "sample.txt", lineId: "2"}, {id: "getLine", status: "closed", line: "", previous: "0"}],
-    // [{id: "getFile", repo: "temp_1", file: "sample.txt"}, result => {
-    //     result = result.json;
-    //     return result.id === "getFile" && result.status === "closed" &&
-    //         typeof result.lines === "object" && result.lines instanceof Array &&
-    //         result.lines[0].lineId === "0" && result.lines[1].lineId === "2" &&
-    //         result.lines[0].line === "HelloWorld" && result.lines[1].line === "";
-    // }],
-    // [{id: "getFile", repo: "temp_1", file: "magic.txt"}, {id: "getFile", status: "failed", reason: "File does not exist."}]
+    [{id: "erase", repo: "temp_1", file: "sample.txt", lineId: "0", col: 5, count: 1}, {id: "erase", status: "closed"}],
+    [{id: "getLine", repo: "temp_1", file: "sample.txt", lineId: "0"}, {id: "getLine", status: "closed", line: "HelloWorld"}],
+    [{id: "split", repo: "temp_1", file: "sample.txt", lineId: "0", col: 5, newLineId: "1"}, {id: "split", status: "closed"}],
+    [{id: "getLine", repo: "temp_1", file: "sample.txt", lineId: "0"}, {id: "getLine", status: "closed", line: "Hello"}],
+    [{id: "getLine", repo: "temp_1", file: "sample.txt", lineId: "1"}, {id: "getLine", status: "closed", line: "World"}],
+    [{id: "split", repo: "temp_1", file: "sample.txt", lineId: "1", col: -1, newLineId: "2"}, {id: "split", status: "closed"}],
+    [{id: "getLine", repo: "temp_1", file: "sample.txt", lineId: "1"}, {id: "getLine", status: "closed", line: "World", next: "2"}],
+    [{id: "getLine", repo: "temp_1", file: "sample.txt", lineId: "2"}, {id: "getLine", status: "closed", line: "", previous: "1"}],
+    [{id: "merge", repo: "temp_1", file: "sample.txt", lineId: "1"}, {id: "merge", status: "closed"}],
+    [{id: "getLine", repo: "temp_1", file: "sample.txt", lineId: "0"}, {id: "getLine", status: "closed", line: "HelloWorld", next: "2"}],
+    [{id: "getLine", repo: "temp_1", file: "sample.txt", lineId: "1"}, {id: "getLine", status: "failed", reason: "Line does not exist."}],
+    [{id: "getLine", repo: "temp_1", file: "sample.txt", lineId: "2"}, {id: "getLine", status: "closed", line: "", previous: "0"}],
+    [{id: "getFile", repo: "temp_1", file: "sample.txt"}, result => {
+        result = result.json;
+        return result.id === "getFile" && result.status === "closed" &&
+            typeof result.lines === "object" &&
+            typeof result.lines["0"] === "object" && typeof result.lines["2"] === "object" &&
+            result.lines["0"].line === "HelloWorld" && result.lines["2"].line === "";
+    }],
+    [{id: "getFile", repo: "temp_1", file: "magic.txt"}, {id: "getFile", status: "failed", reason: "File does not exist."}],
+    [{id: "getFiles", repo: "temp_1"}, {id: "getFiles", status: "closed"}],
+
 
 
 ], {newTest: newTest, timeout: 5000});

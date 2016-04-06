@@ -98,6 +98,10 @@ class Request extends EventEmitter {
                     break;
 
                 //Directories
+                case "getFiles":
+                    this.enforceParamsAndAccessThenCall({repo: "string"}, "contributor", this.client.listFiles.bind(this.client));
+                    break;
+
                 case "createDirectory":
                     this.enforceParamsAndAccessThenCall({repo: "string", directory: "string"}, "contributor", this.client.createDirectory.bind(this.client));
                     break;

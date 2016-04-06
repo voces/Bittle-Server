@@ -217,6 +217,17 @@ class MongoDB extends EventEmitter {
      ** File
      ******************************************************/
 
+    updateFile(repo, path) {
+        this.file.updateOne({
+            repo: repo,
+            path: path
+        }, {$set: {
+            updated: Date.now()
+        }, $inc: {
+            version: 1
+        }});
+    }
+
     fileCreate(repo, path, initialLineId) {
         return new Promise(resolve => {
             Promise.all([
@@ -225,13 +236,16 @@ class MongoDB extends EventEmitter {
                     path: path,
                     lowerPath: path.toLowerCase(),
                     created: Date.now(),
-                    updated: Date.now()
+                    updated: Date.now(),
+                    version: 0
                 }),
                 this.line.insertOne({
                     repo: repo,
                     lowerPath: path.toLowerCase(),
                     lineId: initialLineId,
-                    line: ""
+                    line: "",
+                    updated: Date.now(),
+                    version: 0
                 })
             ]).then(result => resolve({file: result[0], line: result[1]}));
 
@@ -245,6 +259,8 @@ class MongoDB extends EventEmitter {
         }, {$set: {
             path: newPath,
             updated: Date.now()
+        }, $inc: {
+            version: 1
         }});
     }
 
@@ -261,10 +277,24 @@ class MongoDB extends EventEmitter {
             Promise.all([
                 this.file.findOne({repo: repo, lowerPath: path.toLowerCase()}),
                 this.line.find({repo: repo, lowerPath: path.toLowerCase()}).toArray()
+
             ]).then(result => {
+
                 if (result[0] === null) reject("File does not exist.");
 
-                result[0].lines = result[1];
+                delete result[0]._id;
+                result[0].lines = {};
+
+                for (let i = 0; i < result[1].length; i++)
+                    result[0].lines[result[1][i].lineId] = {
+                        lineId: result[1][i].lineId,
+                        line: result[1][i].line,
+                        next: result[1][i].next,
+                        previous: result[1][i].previous,
+                        updated: result[1][i].updated,
+                        version: result[1][i].version
+                    };
+
                 resolve(result[0]);
 
             });
@@ -274,6 +304,30 @@ class MongoDB extends EventEmitter {
 
     fileExists(repo, path) {
         return this.file.find({repo: repo, lowerPath: path.toLowerCase()}, {"_id": 1}).limit(1).count();
+    }
+
+    filesGet(repo, regexp) {
+
+        return new Promise(resolve => {
+
+            this.file.find({repo: repo, path: regexp}).toArray().then(files => {
+
+                let arr = [];
+
+                for (let i = 0; i < files.length; i++)
+                    arr.push({
+                        path: files[i].path,
+                        created: files[i].created,
+                        updated: files[i].updated,
+                        version: files[i].version
+                    });
+
+                resolve(arr);
+
+            });
+
+        });
+
     }
 
     /******************************************************
@@ -286,23 +340,29 @@ class MongoDB extends EventEmitter {
 
     lineSet(repo, path, lineId, line, previous, next) {
 
-        let update = {$set: {line: line, updated: Date.now()}};
+        let update = {$set: {line: line, updated: Date.now()}, $inc: {version: 1}};
 
         if (previous) update.$set.previous = previous;
-        if (next) {
+        if (next)
             if (next === -1) update.$unset.next = "whatever";
             else update.$set.next = next;
-        }
+
+        this.updateFile(repo, path);
 
         return this.line.updateOne(
             {repo: repo, lowerPath: path.toLowerCase(), lineId: lineId},
             update,
             {upsert: true}
         );
+
     }
 
     lineRemove(repo, path, lineId) {
+
+        this.updateFile(repo, path);
+
         return this.line.removeOne({repo: repo, lowerPath: path.toLowerCase(), lineId: lineId});
+        
     }
 
     lineAfter(repo, path, lineId) {
@@ -479,6 +539,10 @@ class Database extends EventEmitter {
 
     fileExists(repo, path) {
         return this.db.fileExists(repo, path);
+    }
+
+    filesGet(repo, regexp) {
+        return this.db.filesGet(repo, regexp);
     }
 
     /******************************************************

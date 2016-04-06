@@ -327,69 +327,85 @@ class Client extends EventEmitter {
     }
 
     getFile(request, repo, filePath) {
-        return this.server.getRepo(repo).getFile(filePath);
-    }
-
-    createDirectory(request, repo, directory) {
-
         return new Promise((resolve, reject) => {
-
-            directory = directory.replace(/\\/g, "/");
-            if (directory.slice(-1) === "/") directory = directory.slice(0, -1);
-
-            this.server.db.dirExists(repo, directory).then(result => {
-
-                if (result > 0) return reject("Directory already exists.");
-
-                this.server.db.dirCreate(repo, directory).then(
-                    (/*result*/) => resolve(),
-                    (/*error*/) => reject("Uncaught server error.")
-                );
-
-            }, (/*error*/) => reject("Uncaught server error."));
+            this.server.getRepo(repo).getFile(filePath).then(file => {
+                if (!file) reject("File does not exist.");
+                resolve(file);
+            }, error => reject(error));
         });
     }
 
-    moveDirectory(request, repo, directory, newPath) {
+    listFiles(request, repo) {
+        this.log(request.json.regExp, request.regOptions, new RegExp(request.json.regExp, request.json.regOptions));
+        return this.server.getRepo(repo).listFiles(new RegExp(request.json.regExp, request.json.regOptions));
+    }
+
+    createDirectory(/*request, repo, directory*/) {
 
         return new Promise((resolve, reject) => {
 
-            directory = directory.replace(/\\/g, "/");
-            if (directory.slice(-1) === "/") directory = directory.slice(0, -1);
+            reject("This feature has been depreciated.");
 
-            newPath = newPath.replace(/\\/g, "/");
-            if (newPath.slice(-1) === "/") newPath = newPath.slice(0, -1);
-
-            this.server.db.dirExists(repo, directory).then(result => {
-
-                if (result === 0) return reject("Directory does not exist.");
-
-                this.server.db.dirMove(repo, directory, newPath).then(
-                    (/*result*/) => resolve(),
-                    (/*error*/) => reject("Uncaught server error.")
-                );
-
-            }, (/*error*/) => reject("Uncaught server error."));
+            // directory = directory.replace(/\\/g, "/");
+            // if (directory.slice(-1) === "/") directory = directory.slice(0, -1);
+            //
+            // this.server.db.dirExists(repo, directory).then(result => {
+            //
+            //     if (result > 0) return reject("Directory already exists.");
+            //
+            //     this.server.db.dirCreate(repo, directory).then(
+            //         (/*result*/) => resolve(),
+            //         (/*error*/) => reject("Uncaught server error.")
+            //     );
+            //
+            // }, (/*error*/) => reject("Uncaught server error."));
         });
     }
 
-    deleteDirectory(request, repo, directory) {
+    moveDirectory(/*request, repo, directory, newPath*/) {
 
         return new Promise((resolve, reject) => {
 
-            directory = directory.replace(/\\/g, "/");
-            if (directory.slice(-1) === "/") directory = directory.slice(0, -1);
+            reject("This feature has been depreciated.");
 
-            this.server.db.dirExists(repo, directory).then(result => {
+            // directory = directory.replace(/\\/g, "/");
+            // if (directory.slice(-1) === "/") directory = directory.slice(0, -1);
+            //
+            // newPath = newPath.replace(/\\/g, "/");
+            // if (newPath.slice(-1) === "/") newPath = newPath.slice(0, -1);
+            //
+            // this.server.db.dirExists(repo, directory).then(result => {
+            //
+            //     if (result === 0) return reject("Directory does not exist.");
+            //
+            //     this.server.db.dirMove(repo, directory, newPath).then(
+            //         (/*result*/) => resolve(),
+            //         (/*error*/) => reject("Uncaught server error.")
+            //     );
+            //
+            // }, (/*error*/) => reject("Uncaught server error."));
+        });
+    }
 
-                if (result === 0) return reject("Directory does not exist.");
+    deleteDirectory(/*request, repo, directory*/) {
 
-                this.server.db.dirDelete(repo, directory).then(
-                    (/*result*/) => resolve(),
-                    (/*error*/) => reject("Uncaught server error.")
-                );
+        return new Promise((resolve, reject) => {
 
-            }, (/*error*/) => reject("Uncaught server error."));
+            reject("This feature has been depreciated.");
+
+            // directory = directory.replace(/\\/g, "/");
+            // if (directory.slice(-1) === "/") directory = directory.slice(0, -1);
+            //
+            // this.server.db.dirExists(repo, directory).then(result => {
+            //
+            //     if (result === 0) return reject("Directory does not exist.");
+            //
+            //     this.server.db.dirDelete(repo, directory).then(
+            //         (/*result*/) => resolve(),
+            //         (/*error*/) => reject("Uncaught server error.")
+            //     );
+            //
+            // }, (/*error*/) => reject("Uncaught server error."));
         });
     }
 
@@ -397,142 +413,20 @@ class Client extends EventEmitter {
         return this.server.getRepo(repo).insert(filePath, lineId, column, data);
     }
 
-    lineErase(request, repo, file, lineId, column, count) {
-
-        return new Promise((resolve, reject) => {
-
-            file = file.replace(/\\/g, "/");
-
-            Promise.all([
-
-                this.server.db.fileExists(repo, file),
-                this.server.db.lineGet(repo, file, lineId)
-
-            ]).then(result => {
-
-                if (result[0] === 0) return reject("File does not exist.");
-
-                let line = result[1];
-
-                if (line === null) line = "";
-                else line = line.line;
-
-                this.server.db.lineSet(repo, file, lineId, line.slice(0, column) + line.slice(column + count)).then(
-                    (/*result*/) => resolve(),
-                    (/*error*/) => reject("Uncaught server error.")
-                );
-
-            });
-
-        });
-
+    lineErase(request, repo, filePath, lineId, column, deleteCount) {
+        return this.server.getRepo(repo).erase(filePath, lineId, column, deleteCount);
     }
 
-    lineSplit(request, repo, file, lineId, column, newLineId) {
-
-        return new Promise((resolve, reject) => {
-
-            file = file.replace(/\\/g, "/");
-
-            Promise.all([
-
-                this.server.db.fileExists(repo, file),
-                this.server.db.lineGet(repo, file, lineId),
-                this.server.db.lineGet(repo, file, newLineId)
-
-            ]).then(result => {
-
-                if (result[0] === 0) return reject("File does not exist.");
-
-                let oldLine = result[1],
-                    newLine = result[2];
-
-                if (oldLine === null) return reject("Line does not exist");
-                else oldLine = oldLine.line;
-
-                if (newLine !== null) return reject("Line already exists.");
-
-                if (column === -1) column = oldLine.length;
-
-                Promise.all([
-
-                    this.server.db.lineSet(repo, file, lineId, oldLine.slice(0, column), null, newLineId),
-                    this.server.db.lineSet(repo, file, newLineId, oldLine.slice(column), lineId)
-
-                ]).then(() => resolve());
-
-            });
-
-        });
-
+    lineSplit(request, repo, filePath, lineId, column, newLineId) {
+        return this.server.getRepo(repo).split(filePath, lineId, column, newLineId);
     }
 
-    lineMerge(request, repo, file, lineId) {
-
-        file = file.replace(/\\/g, "/");
-
-        return new Promise((resolve, reject) => {
-
-            Promise.all([
-
-                this.server.db.fileExists(repo, file),
-                this.server.db.lineGet(repo, file, lineId)
-
-            ]).then(result => {
-
-                if (result[0] === 0) return reject("File does not exist.");
-
-                let deletedLine = result[1];
-
-                if (deletedLine === null) return reject("Line does not exist.");
-                if (typeof deletedLine.previous === "undefined") return reject("Line does not follow another.");
-
-                Promise.all([
-
-                    this.server.db.lineGet(repo, file, deletedLine.previous),
-                    this.server.db.lineAfter(repo, file, lineId)
-
-                ]).then(result => {
-
-                    let merger = result[0],
-                        after = result[1];
-
-                    let relocate = () => {};
-                    if (after !== null) relocate = this.server.db.lineSet(repo, file, after.lineId, after.line, merger.lineId);
-
-                    Promise.all([
-
-                        this.server.db.lineSet(repo, file, merger.lineId, merger.line + deletedLine.line, null, after != null ? after.lineId : -1),
-                        relocate,
-                        this.server.db.lineRemove(repo, file, lineId)
-
-                    ]).then((/*result*/) => resolve());
-
-                });
-
-
-            });
-
-        });
-
+    lineMerge(request, repo, filePath, lineId) {
+        return this.server.getRepo(repo).merge(filePath, lineId);
     }
 
     getLine(request, repo, filePath, lineId) {
         return this.server.getRepo(repo).getLine(filePath, lineId);
-        
-        // file = file.replace(/\\/g, "/");
-        //
-        // return new Promise((resolve, reject) => {
-        //
-        //     this.server.db.lineGet(repo, file, lineId).then(line => {
-        //
-        //         if (line !== null) resolve({line: line.line, previous: line.previous, next: line.next, lineId: lineId});
-        //         else reject("Line does not exist.");
-        //
-        //     });
-        //
-        // });
-
     }
 
     //A factory-like way of handling requests, since a client must queue them
