@@ -94,6 +94,7 @@ class MongoDB extends EventEmitter {
             this.directory = db.collection("directory");
             this.file = db.collection("file");
             this.line = db.collection("line");
+            this.listeners = db.collection("listeners");
 
             this.emit("ready", {config: this.config, url: this.url});
 
@@ -113,7 +114,8 @@ class MongoDB extends EventEmitter {
             pass: pass,
             email: email,
             created: Date.now(),
-            updated: Date.now()
+            updated: Date.now(),
+            listeners: []
         });
     }
 
@@ -172,6 +174,30 @@ class MongoDB extends EventEmitter {
 
     roleDelete(user, repo) {
         return this.role.deleteOne({user: user, repo: repo});
+    }
+
+    /******************************************************
+     ** Listener
+     ******************************************************/
+
+    listenerSet(user, repo, path, listener) {
+        return this.listeners.updateOne({
+            user: user,
+            repo: repo,
+            path: path
+        }, {$set: {
+            listener: listener
+        }}, {upsert: true});
+    }
+
+    listenerGet(user, repo, path) {
+        if (typeof repo === "undefined") return this.listeners.find({user: user}).toArray();
+        else if (typeof path === "undefined") return this.listeners.find({user: user, repo: repo}).toArray();
+        else return this.listeners.find({user: user, repo: repo, path: path}).toArray();
+    }
+
+    listenerDelete(user, repo, path) {
+        return this.listeners.deleteOne(user, repo, path);
     }
 
     /******************************************************
@@ -362,7 +388,7 @@ class MongoDB extends EventEmitter {
         this.updateFile(repo, path);
 
         return this.line.removeOne({repo: repo, lowerPath: path.toLowerCase(), lineId: lineId});
-        
+
     }
 
     lineAfter(repo, path, lineId) {
@@ -489,6 +515,22 @@ class Database extends EventEmitter {
 
     roleDelete(user, repo) {
         return this.db.roleDelete(user, repo);
+    }
+
+    /******************************************************
+     ** Listener
+     ******************************************************/
+
+    listenerSet(user, repo, path, listener) {
+        return this.db.listenerSet(user, repo, path, listener);
+    }
+
+    listenerGet(user, repo, path) {
+        return this.db.listenerGet(user, repo, path);
+    }
+
+    listenerDelete(user, repo, path) {
+        return this.db.listenerDelete(user, repo, path);
     }
 
     /******************************************************

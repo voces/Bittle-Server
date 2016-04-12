@@ -24,6 +24,8 @@ class Client extends EventEmitter {
         // socket.on("ping", this.onPing.bind(this));
         // socket.on("pong", this.onPong.bind(this));
 
+        this.listeners = {};
+
         this.authenticated = false;
 
         this.requestQueue = [];
@@ -130,6 +132,10 @@ class Client extends EventEmitter {
             this.originaName = undefined;
             this.email = undefined;
 
+            this.listeners = {};
+
+            this.emit("logout");
+
             resolve();
 
         });
@@ -152,6 +158,8 @@ class Client extends EventEmitter {
 
                 if (users.length === 0) return reject("Account does not exist.");
 
+                this.log(`Changed password of '${name}'`);
+
                 this.server.db.userSetPass(name, hash).then(
                     (/*result*/) => resolve(),
                     error => {this.error(error); reject("Unable to query database.");}
@@ -168,6 +176,8 @@ class Client extends EventEmitter {
         return new Promise((resolve, reject) => {
 
             this.auth(name, pass).then((/*user*/) => {
+
+                this.log(`Changed email of '${name}'`);
 
                 this.server.db.userSetEmail(name, newEmail).then(
                     (/*result*/) => resolve(),
@@ -214,6 +224,8 @@ class Client extends EventEmitter {
 
                 let hash = result[1];
 
+                this.log(`Changed password of '${this.name}'`);
+
                 this.server.db.userSetPass(this.name, hash).then(
                     (/*result*/) => resolve(),
                     error => {this.error(error); reject("Unable to query database.");}
@@ -230,6 +242,8 @@ class Client extends EventEmitter {
         return new Promise((resolve, reject) => {
 
             this.auth(this.name, pass).then((/*user*/) => {
+
+                this.log(`Changed email of '${this.name}'`);
 
                 this.server.db.userSetEmail(this.name, newEmail).then(
                     (/*result*/) => resolve(),
@@ -275,7 +289,7 @@ class Client extends EventEmitter {
     }
 
     createRepo(request, name) {
-        return this.server.getRepo(name).create(this.name);
+        return this.server.getRepo(name).create(request, this.name);
     }
 
     deleteRepo(/*request, name*/) {
@@ -307,7 +321,7 @@ class Client extends EventEmitter {
     }
 
     setRole(request, repoName, userName, role) {
-        return this.server.getRepo(repoName).setRole(this, request.role, userName, role);
+        return this.server.getRepo(repoName).setRole(request, userName, role);
     }
 
     deleteRole(request, repoName, userName) {
@@ -315,15 +329,15 @@ class Client extends EventEmitter {
     }
 
     createFile(request, repo, filePath) {
-        return this.server.getRepo(repo).createFile(filePath, typeof request.initialLineId === "undefined" ? "0" : request.initialLineId);
+        return this.server.getRepo(repo).createFile(request, filePath, typeof request.initialLineId === "undefined" ? "0" : request.initialLineId);
     }
 
     moveFile(request, repo, oldPath, newPath) {
-        return this.server.getRepo(repo).moveFile(oldPath, newPath);
+        return this.server.getRepo(repo).moveFile(request, oldPath, newPath);
     }
 
     deleteFile(request, repo, filePath) {
-        return this.server.getRepo(repo).deleteFile(filePath);
+        return this.server.getRepo(repo).deleteFile(request, filePath);
     }
 
     getFile(request, repo, filePath) {
@@ -336,7 +350,6 @@ class Client extends EventEmitter {
     }
 
     listFiles(request, repo) {
-        this.log(request.json.regExp, request.regOptions, new RegExp(request.json.regExp, request.json.regOptions));
         return this.server.getRepo(repo).listFiles(new RegExp(request.json.regExp, request.json.regOptions));
     }
 
@@ -410,24 +423,89 @@ class Client extends EventEmitter {
     }
 
     lineInsert(request, repo, filePath, lineId, column, data) {
-        return this.server.getRepo(repo).insert(filePath, lineId, column, data);
+        return this.server.getRepo(repo).insert(request, filePath, lineId, column, data);
     }
 
     lineErase(request, repo, filePath, lineId, column, deleteCount) {
-        return this.server.getRepo(repo).erase(filePath, lineId, column, deleteCount);
+        return this.server.getRepo(repo).erase(request, filePath, lineId, column, deleteCount);
     }
 
     lineSplit(request, repo, filePath, lineId, column, newLineId) {
-        return this.server.getRepo(repo).split(filePath, lineId, column, newLineId);
+        return this.server.getRepo(repo).split(request, filePath, lineId, column, newLineId);
     }
 
     lineMerge(request, repo, filePath, lineId) {
-        return this.server.getRepo(repo).merge(filePath, lineId);
+        return this.server.getRepo(repo).merge(request, filePath, lineId);
     }
 
     getLine(request, repo, filePath, lineId) {
         return this.server.getRepo(repo).getLine(filePath, lineId);
     }
+
+    sync(repo, path, json) {
+
+        let rules = this.listeners[repo.name],
+            match;
+
+        if (typeof rules[path] !== "undefined") match = rules[path];
+        else {
+            match = {path: "", invalid: true};
+
+            for (let i = 0; i < rules.length; i++)
+                if (path.indexOf(rules[i].path) === 0 && rules[i].path.length > match.path.length)
+                    match = rules[i];
+
+            if (!match) return;
+            else rules[path] = match;
+
+        }
+
+        switch (match.listener) {
+
+            case "live":
+                this.send(json);
+                break;
+
+        }
+
+    }
+
+    addListener(repo, rule) {
+
+        if (typeof this.listeners[repo.name] === "undefined") this.listeners[repo.name] = [rule];
+        else this.listeners[repo.name].push(rule);
+
+    }
+
+    setListener(/*request, repo, path*/) {
+        return new Promise((request, resolve) => resolve("Feature not yet coded."));
+        // return this.server.getRepo(repo).setListener(repo, path);
+    }
+
+    deleteListener(/*request, repo, path*/) {
+        return new Promise((request, resolve) => resolve("Feature not yet coded."));
+        // return this.server.getRepo(repo).setListener(repo, path);
+    }
+
+    getListeners(/*request*/) {
+        return new Promise((request, resolve) => resolve("Feature not yet coded."));
+    }
+
+    enableListeners(/*request*/) {
+        return new Promise((request, resolve) => resolve("Feature not yet coded."));
+    }
+
+    disableListeners(/*request*/) {
+        return new Promise((request, resolve) => resolve("Feature not yet coded."));
+    }
+
+    // setListener(repo, rule) {
+    //
+    //     let listenerGroup = this.listeners.get(repo);
+    //
+    //     for (let i = 0; i < listenerGroup.length; i++)
+    //
+    // }
 
     //A factory-like way of handling requests, since a client must queue them
     newRequest(json) {
@@ -482,8 +560,8 @@ class Client extends EventEmitter {
 
         data = data.toString();
 
-        if (data.indexOf("pass") >= 0) this.log("[RECV]", data.substr(0, data.indexOf("pass") + 6), "[REDACTED]");
-        else this.log("[RECV]", data);
+        // if (data.indexOf("pass") >= 0) this.log("[RECV]", data.substr(0, data.indexOf("pass") + 6), "[REDACTED]");
+        // else this.log("[RECV]", data);
 
         let json;
 
@@ -539,8 +617,8 @@ class Client extends EventEmitter {
 
         let s = JSON.stringify(json);
 
-        if (s.indexOf("pass") >= 0) this.log("[SEND]", s.substr(0, s.indexOf("pass") + 6), "[REDACTED]");
-        else this.log("[SEND]", s);
+        // if (s.indexOf("pass") >= 0) this.log("[SEND]", s.substr(0, s.indexOf("pass") + 6), "[REDACTED]");
+        // else this.log("[SEND]", s);
 
         this.socket.send(s);
 

@@ -23,13 +23,37 @@ class Repo extends EventEmitter {
         this.get();
     }
 
+    removeListener(client) {
+
+        let index = this.listeners.indexOf(client);
+        if (index >= 0) this.listeners.splice(index, 1);
+
+    }
+
+    addListener(client) {
+
+        this.listeners.push(client);
+        client.once("logout", () => this.removeListener(client));
+
+    }
+
+    sync(request, file, json) {
+
+        json.origin = request.client.name;
+        json.id = "sync";
+
+        for (let i = 0; i < this.listeners.length; i++)
+            this.listeners[i].sync(file, json);
+
+    }
+
     exists() {
 
         return this.wait(resolve => resolve(this.db ? true : false));
 
     }
 
-    create(owner) {
+    create(request, owner) {
 
         return this.wait((resolve, reject) => {
 
@@ -37,15 +61,18 @@ class Repo extends EventEmitter {
 
             Promise.all([
                 this.server.db.repoCreate(this.name),
-                this.server.db.roleSet(owner, this.name, "owner")
+                this.server.db.roleSet(owner, this.name, "owner"),
+                this.server.db.listenerSet(owner, this.name, ".*", "live")
 
             ]).then(() => {
 
                 this.log(`Repo '${this.name}' created, '${owner}' is owner`);
 
                 this.get();
+
                 this.roles[owner.toLowerCase()] = "owner";
-                this.listeners.push(owner);
+                request.client.setListener(this, {path: ".*", listener: "live"});
+                this.addListener(request.client);
 
                 resolve();
 
@@ -90,7 +117,10 @@ class Repo extends EventEmitter {
 
     }
 
-    setRole(setter, setterRole, receiver, newRole) {
+    setRole(request, receiver, newRole) {
+
+        let setter = request.client,
+            setterRole = request.role;
 
         if (PERMISSIONS.indexOf(newRole) < 0)
             return new Promise((resolve, reject) => reject("Role does not exist."));
@@ -121,7 +151,12 @@ class Repo extends EventEmitter {
 
                 this.server.db[newRole === "none" ? "roleDelete" : "roleSet"](receiver, this.name, newRole).then(() => {
                     this.log(`Role of '${receiver}' changed to '${newRole}' by '${setter.name}'`);
+
                     this.roles[receiver.toLowerCase()] = newRole;
+
+                    let client = this.server.clients[receiver];
+                    if (client) client.send({id: "role", repo: this.name, role: newRole, origin: request.client.name});
+
                     resolve();
 
                 });
@@ -160,7 +195,7 @@ class Repo extends EventEmitter {
 
     }
 
-    createFile(filePath, initialLineId) {
+    createFile(request, filePath, initialLineId) {
 
         return this.wait((resolve, reject) => {
 
@@ -177,6 +212,7 @@ class Repo extends EventEmitter {
                 this.server.db.fileCreate(this.name, filePath, initialLineId).then(() => {
                     delete this.files[filePath];
                     this.getFile(filePath);
+
                     resolve();
 
                 }).catch(error => this.error(error));
@@ -187,7 +223,7 @@ class Repo extends EventEmitter {
 
     }
 
-    moveFile(oldPath, newPath) {
+    moveFile(request, oldPath, newPath) {
 
         return this.wait((resolve, reject) => {
 
@@ -214,7 +250,7 @@ class Repo extends EventEmitter {
                 oldFile.version++;
                 oldFile.updated = Date.now();
 
-                this.log(`File '${oldFile}' moved to '${newFile}' inside repo '${this.name}'`);
+                this.log(`File '${oldPath}' moved to '${newPath}' inside repo '${this.name}'`);
 
                 this.server.db.fileMove(this.name, oldPath, newPath).then(() => resolve());
 
@@ -224,7 +260,7 @@ class Repo extends EventEmitter {
 
     }
 
-    deleteFile(filePath) {
+    deleteFile(request, filePath) {
 
         return this.wait((resolve, reject) => {
 
@@ -271,7 +307,7 @@ class Repo extends EventEmitter {
 
     }
 
-    insert(filePath, lineId, column, data) {
+    insert(request, filePath, lineId, column, data) {
 
         return this.waitFile(filePath, (resolve, reject) => {
 
@@ -292,7 +328,7 @@ class Repo extends EventEmitter {
 
     }
 
-    erase(filePath, lineId, column, deleteCount) {
+    erase(request, filePath, lineId, column, deleteCount) {
 
         return this.waitFile(filePath, (resolve, reject) => {
 
@@ -313,7 +349,7 @@ class Repo extends EventEmitter {
 
     }
 
-    split(filePath, lineId, column, newLineId) {
+    split(request, filePath, lineId, column, newLineId) {
 
         return this.waitFile(filePath, (resolve, reject) => {
 
@@ -354,7 +390,7 @@ class Repo extends EventEmitter {
 
     }
 
-    merge(filePath, lineId) {
+    merge(request, filePath, lineId) {
 
         return this.waitFile(filePath, (resolve, reject) => {
 

@@ -79,6 +79,28 @@ class Request extends EventEmitter {
                     this.enforceParamsAndAccessThenCall({repo: "string", user: "string"}, "manager", this.client.deleteRole.bind(this.client));
                     break;
 
+                //listeners
+                case "setListener":
+                    this.enforceParamsAndAccessThenCall({repo: "string", path: "string", listener: "string"}, "contributor",
+                        this.client.setListener.bind(this.client));
+                    break;
+
+                case "deleteListener":
+                    this.enforceParamsAndAccessThenCall({repo: "string", path: "string"}, "contributor", this.client.deleteListener.bind(this.client));
+                    break;
+
+                case "getListeners":
+                    this.enforceParamsAndAccessThenCall({}, "contributor", this.client.getListeners.bind(this.client));
+                    break;
+
+                case "enableListeners":
+                    this.enforceParamsAndAccessThenCall({}, "contributor", this.client.enableListeners.bind(this.client));
+                    break;
+
+                case "disableListeners":
+                    this.enforceParamsAndAccessThenCall({}, "contributor", this.client.disableListeners.bind(this.client));
+                    break;
+
                 //Files
                 case "createFile":
                     this.enforceParamsAndAccessThenCall({repo: "string", file: "string"}, "contributor", this.client.createFile.bind(this.client));
