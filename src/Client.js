@@ -320,6 +320,10 @@ class Client extends EventEmitter {
 
     }
 
+    getRoles(request) {
+        return new Promise(resolve => this.server.db.rolesGet(this.name, request.repo).then(result => resolve({listeners: result})));
+    }
+
     setRole(request, repoName, userName, role) {
         return this.server.getRepo(repoName).setRole(request, userName, role);
     }
@@ -477,18 +481,20 @@ class Client extends EventEmitter {
 
     }
 
-    setListener(/*request, repo, path*/) {
-        return new Promise((request, resolve) => resolve("Feature not yet coded."));
-        // return this.server.getRepo(repo).setListener(repo, path);
+    setListener(request, repo, path, listener) {
+        return this.server.getRepo(repo).setListener(request, path, listener);
     }
 
-    deleteListener(/*request, repo, path*/) {
-        return new Promise((request, resolve) => resolve("Feature not yet coded."));
-        // return this.server.getRepo(repo).setListener(repo, path);
+    deleteListener(request, repo, path, listener) {
+        return this.server.getRepo(repo).deleteListener(request, path, listener);
     }
 
-    getListeners(/*request*/) {
-        return new Promise((request, resolve) => resolve("Feature not yet coded."));
+    getListeners(request) {
+
+        if (request.repo) this.server.getRepo(request.repo).getListeners(request, request.path);
+
+        else return new Promise(resolve => this.server.db.listenerGet(this.name, request.repo, request.path).then(result => resolve({listeners: result})));
+
     }
 
     enableListeners(/*request*/) {
@@ -560,8 +566,8 @@ class Client extends EventEmitter {
 
         data = data.toString();
 
-        // if (data.indexOf("pass") >= 0) this.log("[RECV]", data.substr(0, data.indexOf("pass") + 6), "[REDACTED]");
-        // else this.log("[RECV]", data);
+        if (data.indexOf("pass") >= 0) this.log("[RECV]", data.substr(0, data.indexOf("pass") + 6), "[REDACTED]");
+        else this.log("[RECV]", data);
 
         let json;
 
@@ -617,8 +623,8 @@ class Client extends EventEmitter {
 
         let s = JSON.stringify(json);
 
-        // if (s.indexOf("pass") >= 0) this.log("[SEND]", s.substr(0, s.indexOf("pass") + 6), "[REDACTED]");
-        // else this.log("[SEND]", s);
+        if (s.indexOf("pass") >= 0) this.log("[SEND]", s.substr(0, s.indexOf("pass") + 6), "[REDACTED]");
+        else this.log("[SEND]", s);
 
         this.socket.send(s);
 

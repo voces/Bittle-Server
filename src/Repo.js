@@ -167,6 +167,42 @@ class Repo extends EventEmitter {
 
     }
 
+    setListener(request, path, listener) {
+
+        return this.wait((resolve, reject) => {
+
+            if (this.db === null) return reject("Repo does not exist.");
+
+            this.server.db.listenerSet(request.client.name, this.name, path, listener).then(result => resolve(result));
+
+        });
+
+    }
+
+    deleteListener(request, path, listener) {
+
+        return this.wait((resolve, reject) => {
+
+            if (this.db === null) return reject("Repo does not exist.");
+
+            this.server.db.listenerDelete(request.client.name, this.name, path, listener).then(result => resolve(result));
+
+        });
+
+    }
+
+    getListeners(request, path) {
+
+        return this.wait((resolve, reject) => {
+
+            if (this.db === null) return reject("Repo does not exist.");
+
+            this.server.db.listenerGet(this.client.name, this.name, path).then(result => resolve({listeners: result}));
+
+        });
+
+    }
+
     getFile(filePath) {
 
         return this.wait((resolve, reject) => {

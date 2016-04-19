@@ -70,6 +70,8 @@ class Request extends EventEmitter {
                 case "deleteRepoConfirm": this.enforceParamsThenCall({key: "number"}, this.client.deleteRepoConfirm.bind(this.client)); break;
 
                 //Roles
+                case "getRoles": this.enforceParamsThenCall({}, this.client.getRoles.bind(this.client)); break;
+
                 case "setRole":
                     this.enforceParamsAndAccessThenCall({repo: "string", user: "string", role: "string"}, "manager",
                         this.client.setRole.bind(this.client));

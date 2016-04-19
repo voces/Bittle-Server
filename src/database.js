@@ -176,6 +176,10 @@ class MongoDB extends EventEmitter {
         return this.role.deleteOne({user: user, repo: repo});
     }
 
+    rolesGet(user, repo) {
+        return this.role.find({user: user, repo: {$regex: repo, $options: "i"}}).toArray();
+    }
+
     /******************************************************
      ** Listener
      ******************************************************/
@@ -186,7 +190,8 @@ class MongoDB extends EventEmitter {
             repo: repo,
             path: path
         }, {$set: {
-            listener: listener
+            listener: listener,
+            enabled: true
         }}, {upsert: true});
     }
 
@@ -515,6 +520,10 @@ class Database extends EventEmitter {
 
     roleDelete(user, repo) {
         return this.db.roleDelete(user, repo);
+    }
+
+    rolesGet(user, repo) {
+        return this.db.rolesGet(user, repo);
     }
 
     /******************************************************

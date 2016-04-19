@@ -35,12 +35,20 @@ function newTest(message, action, callback, silent) {
         //Otherwise we assume it's a send
 
         case "object":
-            action = () => ws.send(JSON.stringify(_action));
+            // action = () => ws.send(JSON.stringify(_action));
+            action = () => {
+                ws.send(JSON.stringify(_action));
+                // responses.push([_action]);
+            };
             if (message === "") message = JSON.stringify(_action).substr(0, 90);
             break;
 
         default:
-            action = () => ws.send(_action);
+            // action = () => ws.send(_action);
+            action = () => {
+                ws.send(_action);
+                // responses.push([_action]);
+            };
             if (message === "") message = _action.toString().substr(0, 90);
             break;
 
@@ -199,9 +207,9 @@ let tester = new Tester([
 
 ], {newTest: newTest, timeout: 5000});
 
-let ws = new WebSocket("wss://notextures.io:8086"),
-    responses = [];
+let ws = new WebSocket("wss://notextures.io:8086");
+    // responses = [];
 
 ws.addEventListener("open", (/*event*/) => tester.start());
+// ws.addEventListener("message", event => responses[responses.length - 1][1] = JSON.parse(event.data));
 ws.addEventListener("message", event => tester.event(event));
-ws.addEventListener("message", event => responses.push(event.data));
