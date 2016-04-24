@@ -64,110 +64,51 @@ class Request extends EventEmitter {
                 case "changePass": this.enforceParamsThenCall({pass: "string", newPass: "string"}, this.client.changePass.bind(this.client)); break;
                 case "changeEmail": this.enforceParamsThenCall({pass: "string", newEmail: "string"}, this.client.changeEmail.bind(this.client)); break;
 
-                //Repo management
-                case "createRepo": this.enforceParamsThenCall({name: "string"}, this.client.createRepo.bind(this.client)); break;
-                case "deleteRepo": this.enforceParamsAndAccessThenCall({repo: "string"}, "owner", this.client.deleteRepo.bind(this.client)); break;
-                case "deleteRepoConfirm": this.enforceParamsThenCall({key: "number"}, this.client.deleteRepoConfirm.bind(this.client)); break;
-
-                //Roles
-                case "getRoles": this.enforceParamsThenCall({}, this.client.getRoles.bind(this.client)); break;
-
-                case "setRole":
-                    this.enforceParamsAndAccessThenCall({repo: "string", user: "string", role: "string"}, "manager",
-                        this.client.setRole.bind(this.client));
-                    break;
-
-                case "deleteRole":
-                    this.enforceParamsAndAccessThenCall({repo: "string", user: "string"}, "manager", this.client.deleteRole.bind(this.client));
-                    break;
-
-                //listeners
-                case "setListener":
-                    this.enforceParamsAndAccessThenCall({repo: "string", path: "string", listener: "string"}, "contributor",
-                        this.client.setListener.bind(this.client));
-                    break;
-
-                case "deleteListener":
-                    this.enforceParamsAndAccessThenCall({repo: "string", path: "string"}, "contributor", this.client.deleteListener.bind(this.client));
-                    break;
-
-                case "getListeners":
-                    this.enforceParamsAndAccessThenCall({}, "contributor", this.client.getListeners.bind(this.client));
-                    break;
-
-                case "enableListeners":
-                    this.enforceParamsAndAccessThenCall({}, "contributor", this.client.enableListeners.bind(this.client));
-                    break;
-
-                case "disableListeners":
-                    this.enforceParamsAndAccessThenCall({}, "contributor", this.client.disableListeners.bind(this.client));
-                    break;
+                //Share
+                case "track": this.enforce({type: {filename: "string"}, instaceof: {lines: Array}}, this.client.track.bind(this.client)); break;
+                // case "untrack": this.enforce({type: {filename: "string"}, instaceof: {lines: Array}}, this.client.untrack.bind(this.client)); break;
+                case "invite": this.enforce({type: {name: "string"}}, this.client.invite.bind(this.client)); break;
+                case "accept": this.enforce({type: {shareId: "number", blame: "string"}}, this.client.accept.bind(this.client)); break;
+                case "decline": this.enforce({type: {shareId: "number", blame: "string"}}, this.client.decline.bind(this.client)); break;
+                // case "unshare": this.enforce({type: {name: "string"}}, this.client.unshare.bind(this.client)); break;
 
                 //Files
-                case "createFile":
-                    this.enforceParamsAndAccessThenCall({repo: "string", file: "string"}, "contributor", this.client.createFile.bind(this.client));
-                    break;
-
-                case "moveFile":
-                    this.enforceParamsAndAccessThenCall({repo: "string", file: "string", newPath: "string"}, "contributor",
-                        this.client.moveFile.bind(this.client));
-                    break;
-
-                case "deleteFile":
-                    this.enforceParamsAndAccessThenCall({repo: "string", file: "string"}, "contributor", this.client.deleteFile.bind(this.client));
-                    break;
-
-                case "getFile":
-                    this.enforceParamsAndAccessThenCall({repo: "string", file: "string"}, "contributor", this.client.getFile.bind(this.client));
-                    break;
-
-                //Directories
-                case "getFiles":
-                    this.enforceParamsAndAccessThenCall({repo: "string"}, "contributor", this.client.listFiles.bind(this.client));
-                    break;
-
-                case "createDirectory":
-                    this.enforceParamsAndAccessThenCall({repo: "string", directory: "string"}, "contributor", this.client.createDirectory.bind(this.client));
-                    break;
-
-                case "moveDirectory":
-                    this.enforceParamsAndAccessThenCall({repo: "string", directory: "string", newPath: "string"}, "contributor",
-                        this.client.moveDirectory.bind(this.client));
-                    break;
-
-                case "deleteDirectory":
-                    this.enforceParamsAndAccessThenCall({repo: "string", directory: "string"}, "contributor", this.client.deleteDirectory.bind(this.client));
-                    break;
-
-                //Lines
-                case "insert":
-                    this.enforceParamsAndAccessThenCall({repo: "string", file: "string", lineId: "string", col: "number", data: "string"}, "contributor",
-                        this.client.lineInsert.bind(this.client));
-                    break;
-
-                case "erase":
-                    this.enforceParamsAndAccessThenCall({repo: "string", file: "string", lineId: "string", col: "number", count: "number"}, "contributor",
-                        this.client.lineErase.bind(this.client));
-                    break;
-
-                case "split":
-                    this.enforceParamsAndAccessThenCall({repo: "string", file: "string", lineId: "string", col: "number", newLineId: "string"}, "contributor",
-                        this.client.lineSplit.bind(this.client));
-                    break;
-
-                case "merge":
-                    this.enforceParamsAndAccessThenCall({repo: "string", file: "string", lineId: "string"}, "contributor",
-                        this.client.lineMerge.bind(this.client));
-                    break;
-
-                case "getLine":
-                    this.enforceParamsAndAccessThenCall({repo: "string", file: "string", lineId: "string"}, "contributor",
-                        this.client.getLine.bind(this.client));
-                    break;
+                case "get": this.enforce({type: {filename: "string"}}, this.client.getFile.bind(this.client)); break;
+                case "lines": this.enforce({type: {filename: "string", start: "number", deleteCount: "number"},
+                    instaceof: {lines: Array}}, this.client.lines.bind(this.client)); break;
+                case "line": this.enforce({type: {filename: "string", lineIndex: "number", start: "number", deleteCount: "number", line: "string"}},
+                    this.client.line.bind(this.client)); break;
 
                 default: this.finish({id: "onReject", reason: "Bad ID.", data: this.json});
 
             }
+
+    }
+
+    enforce(conditions, callback) {
+
+        for (let condition in conditions)
+            switch (condition) {
+                case "type":
+                    for (let property in conditions[condition]) {
+                        if (typeof this.json[property] === "undefined") return this.fail({reason: `Missing parameter ${property}.`});
+                        if (typeof this.json[property] !== conditions[condition][property])
+                            return this.fail({reason: `Mistyped parameter ${property}. Should be type ${conditions[condition][property]}.`});
+                    }
+                    break;
+
+                case "instanceof":
+                    for (let property in conditions[condition]) {
+                        if (typeof this.json[property] === "undefined") return this.fail({reason: `Missing parameter ${property}.`});
+                        if (typeof this.json[property] !== "object") return this.fail({reason: `Primitive parameter ${property}, should be an object.`});
+                        if (typeof this.json[property] instanceof conditions[condition][property])
+                            return this.fail({reason: `Primitive parameter ${property}, should be an object.`});
+                    }
+                    break;
+
+            }
+
+        callback(this);
 
     }
 
@@ -233,6 +174,8 @@ class Request extends EventEmitter {
 
         this.emit("fail", this);
 
+        return false;
+
     }
 
     finish(json) {
@@ -253,6 +196,8 @@ class Request extends EventEmitter {
         json = json || {};
 
         json.status = this.status;
+
+        if (typeof this.json.echo !== "undefined") json.echo = this.json.echo;
 
         if (typeof json.id !== "string") json.id = this.json.id;
 

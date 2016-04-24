@@ -5,7 +5,9 @@ const EventEmitter = require("events"),
     colors = require("colors"),
     bcrypt = require("bcryptjs"),
 
-    Request = require("./Request");
+    Request = require("./Request"),
+    Share = require("./Share"),
+    File = require("./File");
     // Key = require("./Key");
 
 class Client extends EventEmitter {
@@ -21,12 +23,13 @@ class Client extends EventEmitter {
         socket.on("close", this.onClose.bind(this));
         socket.on("message", this.onMessage.bind(this));
         socket.on("error", this.onError.bind(this));
-        // socket.on("ping", this.onPing.bind(this));
-        // socket.on("pong", this.onPong.bind(this));
-
-        this.listeners = {};
 
         this.authenticated = false;
+
+        this.share = null;
+
+        this.files = [];
+        this.peers = [];
 
         this.requestQueue = [];
 
@@ -288,230 +291,127 @@ class Client extends EventEmitter {
 
     }
 
-    createRepo(request, name) {
-        return this.server.getRepo(name).create(request, this.name);
-    }
+    track(request) {
 
-    deleteRepo(/*request, name*/) {
+        if (!this.share) this.share = new Share(this);
 
-        return new Promise((resolve, reject) => {
+        if (this.share.files[request.json.filename]) return request.fail("File already tracked.");
 
-            reject("Feature not yet coded.");   //Because it's not done so in the DB...
+        this.share.addFile(this, new File(request.json.filename, request.json.lines, this.share));
 
-            // this.activeKey = new Key(30000);
-            // resolve({key: this.activeKey.id});
-
-        });
+        request.finish();
 
     }
 
-    deleteRepoConfirm(/*request, key*/) {
+    untrack(request) {
 
-        return new Promise((resolve, reject) => {
+        if (!this.share) return request.fail("Not sharing anything with anyone.");
 
-            reject("Feature not yet coded.");
+        if (typeof this.share.files[request.json.filename] === "undefined") return request.fail("Not sharing file.");
 
-            // if (this.activeKey && this.activeKey.id === key) {
-            //     if (this.activeKey.expired) return reject("Key has expired.");
-            //     return reject("Feature not yet coded.");
-            // } else return reject("Key does not match.");
+        this.share.removeFile(this, this.share.files[request.json.filename]);
 
-        });
+        request.finish();
 
     }
 
-    getRoles(request) {
-        return new Promise(resolve => this.server.db.rolesGet(this.name, request.repo).then(result => resolve({listeners: result})));
-    }
+    invite(request) {
 
-    setRole(request, repoName, userName, role) {
-        return this.server.getRepo(repoName).setRole(request, userName, role);
-    }
+        if (!this.share) this.share = new Share(this);
 
-    deleteRole(request, repoName, userName) {
-        return this.setRole(request, repoName, userName, "none");
-    }
+        let client = this.server.clients[request.json.name];
 
-    createFile(request, repo, filePath) {
-        return this.server.getRepo(repo).createFile(request, filePath, typeof request.initialLineId === "undefined" ? "0" : request.initialLineId);
-    }
+        //TODO: send an email if not logged in
+        if (typeof client === "undefined") return request.fail("User not logged in.");
 
-    moveFile(request, repo, oldPath, newPath) {
-        return this.server.getRepo(repo).moveFile(request, oldPath, newPath);
-    }
+        if (this.share.clients[request.json.name]) return request.fail("Already shared with user.");
 
-    deleteFile(request, repo, filePath) {
-        return this.server.getRepo(repo).deleteFile(request, filePath);
-    }
+        this.share.invite(this, client);
+        // this.share.addClient(this, client);
 
-    getFile(request, repo, filePath) {
-        return new Promise((resolve, reject) => {
-            this.server.getRepo(repo).getFile(filePath).then(file => {
-                if (!file) reject("File does not exist.");
-                resolve(file);
-            }, error => reject(error));
-        });
-    }
-
-    listFiles(request, repo) {
-        return this.server.getRepo(repo).listFiles(new RegExp(request.json.regExp, request.json.regOptions));
-    }
-
-    createDirectory(/*request, repo, directory*/) {
-
-        return new Promise((resolve, reject) => {
-
-            reject("This feature has been depreciated.");
-
-            // directory = directory.replace(/\\/g, "/");
-            // if (directory.slice(-1) === "/") directory = directory.slice(0, -1);
-            //
-            // this.server.db.dirExists(repo, directory).then(result => {
-            //
-            //     if (result > 0) return reject("Directory already exists.");
-            //
-            //     this.server.db.dirCreate(repo, directory).then(
-            //         (/*result*/) => resolve(),
-            //         (/*error*/) => reject("Uncaught server error.")
-            //     );
-            //
-            // }, (/*error*/) => reject("Uncaught server error."));
-        });
-    }
-
-    moveDirectory(/*request, repo, directory, newPath*/) {
-
-        return new Promise((resolve, reject) => {
-
-            reject("This feature has been depreciated.");
-
-            // directory = directory.replace(/\\/g, "/");
-            // if (directory.slice(-1) === "/") directory = directory.slice(0, -1);
-            //
-            // newPath = newPath.replace(/\\/g, "/");
-            // if (newPath.slice(-1) === "/") newPath = newPath.slice(0, -1);
-            //
-            // this.server.db.dirExists(repo, directory).then(result => {
-            //
-            //     if (result === 0) return reject("Directory does not exist.");
-            //
-            //     this.server.db.dirMove(repo, directory, newPath).then(
-            //         (/*result*/) => resolve(),
-            //         (/*error*/) => reject("Uncaught server error.")
-            //     );
-            //
-            // }, (/*error*/) => reject("Uncaught server error."));
-        });
-    }
-
-    deleteDirectory(/*request, repo, directory*/) {
-
-        return new Promise((resolve, reject) => {
-
-            reject("This feature has been depreciated.");
-
-            // directory = directory.replace(/\\/g, "/");
-            // if (directory.slice(-1) === "/") directory = directory.slice(0, -1);
-            //
-            // this.server.db.dirExists(repo, directory).then(result => {
-            //
-            //     if (result === 0) return reject("Directory does not exist.");
-            //
-            //     this.server.db.dirDelete(repo, directory).then(
-            //         (/*result*/) => resolve(),
-            //         (/*error*/) => reject("Uncaught server error.")
-            //     );
-            //
-            // }, (/*error*/) => reject("Uncaught server error."));
-        });
-    }
-
-    lineInsert(request, repo, filePath, lineId, column, data) {
-        return this.server.getRepo(repo).insert(request, filePath, lineId, column, data);
-    }
-
-    lineErase(request, repo, filePath, lineId, column, deleteCount) {
-        return this.server.getRepo(repo).erase(request, filePath, lineId, column, deleteCount);
-    }
-
-    lineSplit(request, repo, filePath, lineId, column, newLineId) {
-        return this.server.getRepo(repo).split(request, filePath, lineId, column, newLineId);
-    }
-
-    lineMerge(request, repo, filePath, lineId) {
-        return this.server.getRepo(repo).merge(request, filePath, lineId);
-    }
-
-    getLine(request, repo, filePath, lineId) {
-        return this.server.getRepo(repo).getLine(filePath, lineId);
-    }
-
-    sync(repo, path, json) {
-
-        let rules = this.listeners[repo.name],
-            match;
-
-        if (typeof rules[path] !== "undefined") match = rules[path];
-        else {
-            match = {path: "", invalid: true};
-
-            for (let i = 0; i < rules.length; i++)
-                if (path.indexOf(rules[i].path) === 0 && rules[i].path.length > match.path.length)
-                    match = rules[i];
-
-            if (!match) return;
-            else rules[path] = match;
-
-        }
-
-        switch (match.listener) {
-
-            case "live":
-                this.send(json);
-                break;
-
-        }
+        request.finish();
 
     }
 
-    addListener(repo, rule) {
+    accept(request) {
 
-        if (typeof this.listeners[repo.name] === "undefined") this.listeners[repo.name] = [rule];
-        else this.listeners[repo.name].push(rule);
+        let client = this.server.clients[request.json.blame];
 
-    }
+        if (typeof client === "undefined") return request.fail("User not logged in.");
 
-    setListener(request, repo, path, listener) {
-        return this.server.getRepo(repo).setListener(request, path, listener);
-    }
+        if (typeof client.share.invites[this.name] === "undefined") return request.fail("Not invited.");
 
-    deleteListener(request, repo, path, listener) {
-        return this.server.getRepo(repo).deleteListener(request, path, listener);
-    }
+        this.share = client.share;
+        this.share.accept(this, client);
 
-    getListeners(request) {
-
-        if (request.repo) this.server.getRepo(request.repo).getListeners(request, request.path);
-
-        else return new Promise(resolve => this.server.db.listenerGet(this.name, request.repo, request.path).then(result => resolve({listeners: result})));
+        request.finish();
 
     }
 
-    enableListeners(/*request*/) {
-        return new Promise((request, resolve) => resolve("Feature not yet coded."));
+    decline(request) {
+
+        let client = this.server.clients[request.json.blame];
+
+        if (typeof client === "undefined") return request.fail("User not logged in.");
+
+        if (typeof client.share.invites[this.name] === "undefined") return request.fail("Not invited.");
+
+        this.share.decline(this, client);
+
+        request.finish();
+
     }
 
-    disableListeners(/*request*/) {
-        return new Promise((request, resolve) => resolve("Feature not yet coded."));
+    unshare(request) {
+
+        if (!this.share) return request.fail("Not sharing anything with anyone.");
+
+        if (typeof this.share.clients[request.json.name] === "undefined") return request.fail("Not sharing with user.");
+
+        this.share.removeClient(this, this.share.clients[request.json.name]);
+
+        request.finish();
+
     }
 
-    // setListener(repo, rule) {
-    //
-    //     let listenerGroup = this.listeners.get(repo);
-    //
-    //     for (let i = 0; i < listenerGroup.length; i++)
-    //
-    // }
+    getFile(request) {
+
+        if (!this.share) return request.fail("Not sharing anything from anyone.");
+
+        if (typeof this.share.files[request.json.filename] === "undefined") return request.fail("File does not exist.");
+
+        request.finish({lines: this.share.files[request.json.filename].lines});
+
+    }
+
+    lines(request) {
+
+        if (!this.share) return request.fail("Not sharing anything with anyone.");
+
+        let file = this.share.files[request.json.filename];
+
+        if (typeof file === "undefined") return request.fail("Not sharing file.");
+
+        file.spliceLines(this, request.json.start, request.json.deleteCount, request.json.lines);
+
+        request.finish();
+
+    }
+
+    line(request) {
+
+        if (!this.share) return request.fail("Not sharing anything with anyone.");
+
+        let file = this.share.files[request.json.filename];
+
+        if (typeof file === "undefined") return request.fail("Not sharing file.");
+        if (file.lines.length <= request.json.lineIndex) return request.fail("File does not have that many lines.");
+
+        file.spliceLine(this, request.json.lineIndex, request.json.start, request.json.deleteCount, request.json.line);
+
+        request.finish();
+
+    }
 
     //A factory-like way of handling requests, since a client must queue them
     newRequest(json) {

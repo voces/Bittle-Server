@@ -79,7 +79,7 @@ class RawSecureServer extends EventEmitter {
 
             });
 
-            this.log(`Started wss server on port '${config.port}'`);
+            this.log(`Started rss server on port '${config.port}'`);
 
             this.emit("start", config);
 
