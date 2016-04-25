@@ -80,7 +80,7 @@ class Request extends EventEmitter {
                     this.client.line.bind(this.client)); break;
 
                 //Monitor
-                case "focus": this.enforce({type: {filename: "string"}}, this.client.focus.bind(this.client)); break;
+                case "focus": this.enforce({type: {filename: "string", line: "number", column: "number"}}, this.client.focus.bind(this.client)); break;
 
                 default: this.finish({id: "onReject", reason: "Bad ID.", data: this.json});
 

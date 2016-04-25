@@ -107,7 +107,7 @@ class RawSecureServer extends EventEmitter {
 
 }
 
-class WSS extends EventEmitter {
+class WebSocketServer extends EventEmitter {
 
     constructor(config) {
 
@@ -241,19 +241,6 @@ class Server extends EventEmitter {
 
     }
 
-    getRepo(repoName) {
-
-        let repo = this.repos[repoName];
-
-        if (typeof repo === "undefined") {
-            repo = new Repo(this, repoName);
-            this.repos[repoName] = repo;
-        }
-
-        return repo;
-
-    }
-
     clean() {
 
         this.db.clean();
@@ -278,7 +265,7 @@ class Server extends EventEmitter {
             switch (config[i].type) {
 
                 case "wss":
-                    this.addServer(new WSS(config[i]));
+                    this.addServer(new WebSocketServer(config[i]));
                     break;
 
                 case "rss":

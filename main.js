@@ -2,11 +2,11 @@
 
 //Wrap console statements with timestamps and colors
 require("console-stamp")(console, {
-        pattern: "dd/mm/yyyy HH:MM:ss.l",
-        colors: {
-            stamp: "yellow",
-            label: "white"
-        }
+    pattern: "dd/mm/yyyy HH:MM:ss.l",
+    colors: {
+        stamp: "yellow",
+        label: "white"
+    }
 });
 
 const deepFreeze = require("deep-freeze-strict"),
@@ -39,4 +39,4 @@ require("./src/config")(config => {
 module.exports = {
     db: db,
     server: server
-}
+};
