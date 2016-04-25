@@ -23,7 +23,15 @@ class File {
 
         this.lines[lineIndex] = this.lines[lineIndex].slice(0, start) + (line || "") + this.lines[lineIndex].slice(start + deleteCount);
 
-        this.share.broadcast({id: "line", filename: this.filename, lineIndex: lineIndex, start: start, deleteCount: deleteCount, line: line, blame: blame.name});
+        this.share.broadcast({
+            id: "line",
+            filename: this.filename,
+            lineIndex: lineIndex,
+            start: start,
+            deleteCount: deleteCount,
+            line: line,
+            blame: blame.name
+        });
 
     }
 

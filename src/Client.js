@@ -362,17 +362,17 @@ class Client extends EventEmitter {
 
     }
 
-    unshare(request) {
-
-        if (!this.share) return request.fail("Not sharing anything with anyone.");
-
-        if (typeof this.share.clients[request.json.name] === "undefined") return request.fail("Not sharing with user.");
-
-        this.share.removeClient(this, this.share.clients[request.json.name]);
-
-        request.finish();
-
-    }
+    // unshare(request) {
+    //
+    //     if (!this.share) return request.fail("Not sharing anything with anyone.");
+    //
+    //     if (typeof this.share.clients[request.json.name] === "undefined") return request.fail("Not sharing with user.");
+    //
+    //     this.share.removeClient(this, this.share.clients[request.json.name]);
+    //
+    //     request.finish();
+    //
+    // }
 
     getFile(request) {
 
@@ -410,6 +410,19 @@ class Client extends EventEmitter {
         file.spliceLine(this, request.json.lineIndex, request.json.start, request.json.deleteCount, request.json.line);
 
         request.finish();
+
+    }
+
+    focus(request) {
+
+        if (!this.share) return request.fail("Not sharing anything from anyone.");
+
+        let file = this.share.files[request.json.filename];
+        if (typeof file === "undefined") return request.fail("File does not exist.");
+
+        this.share.focus(this, file);
+
+        request.finish({lines: this.share.files[request.json.filename].lines});
 
     }
 
@@ -505,6 +518,13 @@ class Client extends EventEmitter {
 
     onClose() {
 
+        if (this.share) {
+
+            this.share.removeClient(this);
+            if (this.share.invites[this.name]) delete this.share.invites[this.name];
+
+        }
+
         this.log("Connection closed");
         this.emit("close", this);
 
@@ -518,6 +538,8 @@ class Client extends EventEmitter {
 
     //Set all out-going communications with the time
     send(json) {
+
+        if (!(this.socket.readyState === 1 || this.socket.readyState === "open")) return;
 
         json.time = Date.now();
 

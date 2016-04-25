@@ -50,7 +50,7 @@ class Share {
     accept(client, blame) {
 
         delete this.invites[client.name];
-        this.addClient(client, blame)
+        this.addClient(client, blame);
 
     }
 
@@ -70,11 +70,18 @@ class Share {
 
     }
 
-    removeClient(blame, client) {
+    removeClient(client) {
 
-        this.broadcast({id: "removeClient", name: client.name, blame: blame.name});
+        this.broadcast({id: "removeClient", name: client.name});
+        // this.broadcast({id: "removeClient", name: client.name, blame: blame.name});
 
         delete this.clients[client.name];
+
+    }
+
+    focus(client, file) {
+
+        this.broadcast({id: "focus", blame: client.name, filename: file.filename});
 
     }
 

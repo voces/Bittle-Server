@@ -230,6 +230,7 @@ class Server extends EventEmitter {
         this.clients.push(client);
 
         client.on("close", this.removeClient.bind(this));
+        socket.on("error", e => client.error(e));
 
     }
 

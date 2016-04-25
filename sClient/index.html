@@ -158,6 +158,28 @@
                 </dialog>
                 <script>page.editors.newEditorDialog.ready();</script>
 
+                <dialog class="mdl-dialog" id="editor-rename-dialog">
+                    <h4 class="mdl-dialog__title">Rename File</h4>
+                    <div class="mdl-dialog__content">
+                        <div class="mdl-textfield mdl-js-textfield">
+                            <input class="mdl-textfield__input" type="text" id="editor-rename-filename" require>
+                            <label class="mdl-textfield__label" for="editor-rename-filename">Filename</label>
+                            <span class="mdl-textfield__error" id="editor-rename-filename-error">Filename is required.</span>
+                        </div>
+                    </div>
+                    <div class="mdl-dialog__actions">
+                        <button type="button" class="mdl-button rename">Rename</button>
+                        <button type="button" class="mdl-button close">Cancel</button>
+                    </div>
+                </dialog>
+                <script>page.editors.rename.ready();</script>
+
+                <div id="snackbar" class="mdl-js-snackbar mdl-snackbar">
+                    <div class="mdl-snackbar__text"></div>
+                    <button class="mdl-snackbar__action" type="button"></button>
+                </div>
+                <script>page.snackbar.ready();</script>
+
             </div>
         </main>
     </div>

@@ -79,6 +79,9 @@ class Request extends EventEmitter {
                 case "line": this.enforce({type: {filename: "string", lineIndex: "number", start: "number", deleteCount: "number", line: "string"}},
                     this.client.line.bind(this.client)); break;
 
+                //Monitor
+                case "focus": this.enforce({type: {filename: "string"}}, this.client.focus.bind(this.client)); break;
+
                 default: this.finish({id: "onReject", reason: "Bad ID.", data: this.json});
 
             }
