@@ -1,8 +1,4 @@
 
-//Test functions referenced by other functions?
-//Test event handlers internally?
-//Test database changes?
-
 "use strict";
 
 const tape = require("tape"),

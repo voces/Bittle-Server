@@ -6,6 +6,7 @@
   "dependencies": {
     "async": "^1.5.2",
     "bcryptjs": "^2.3.0",
+    "colors": "^1.1.2",
     "console-stamp": "^0.2.0",
     "deep-freeze-strict": "^1.1.1",
     "mongodb": "^2.1.7",
