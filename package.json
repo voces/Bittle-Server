@@ -5,15 +5,18 @@
   "main": "main.js",
   "dependencies": {
     "async": "^1.5.2",
+    "bcryptjs": "^2.3.0",
     "console-stamp": "^0.2.0",
     "deep-freeze-strict": "^1.1.1",
     "mongodb": "^2.1.7",
     "ws": "^1.0.1"
   },
-  "devDependencies": {},
-  "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+  "devDependencies": {
+    "tape": "^4.5.1"
   },
-  "author": "",
+  "scripts": {
+    "test": "tape test/whiteBox.js"
+  },
+  "author": "Robert Coe",
   "license": "GPL-3.0"
 }

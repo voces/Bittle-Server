@@ -42,7 +42,7 @@ class Client extends EventEmitter {
 
         if (this.authenticated) return this.name;
 
-        if (this.socket.family = "IPv6") return `[${this.socket.ip}]:${this.socket.port}`;
+        if (this.socket.family === "IPv6") return `[${this.socket.ip}]:${this.socket.port}`;
         return `${this.socket.ip}:${this.socket.port}`;
 
     }

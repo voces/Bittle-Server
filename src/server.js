@@ -9,8 +9,7 @@ const EventEmitter = require("events"),
     async = require("async"),
     colors = require("colors"),
 
-    Client = require("./Client"),
-    Repo = require("./Repo");
+    Client = require("./Client");
 
 function convertCAFile(fileContents) {
 
@@ -232,12 +231,14 @@ class Server extends EventEmitter {
         client.on("close", this.removeClient.bind(this));
         socket.on("error", e => client.error(e));
 
+        return client;
+
     }
 
     removeClient(client) {
 
         this.clients.splice(this.clients.indexOf(client), 1);
-        delete this.clients[this.clients.name];
+        delete this.clients[client.name];
 
     }
 

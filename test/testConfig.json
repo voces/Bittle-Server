@@ -1,0 +1,24 @@
+{
+    "database": {
+        "type": "mongodb",
+        "path": null,
+        "args": "--config config/mongodb.conf",
+        "database": "bittle"
+    },
+    "server": [
+        {
+            "type": "wss",
+            "port": 8086,
+            "key": "config/ssl/passless.key",
+            "cert": "config/ssl/public.crt",
+            "ca": "config/ssl/server.pem"
+        },
+        {
+            "type": "rss",
+            "port": 8087,
+            "key": "config/ssl/passless.key",
+            "cert": "config/ssl/public.crt",
+            "ca": "config/ssl/server.pem"
+        }
+    ]
+}
