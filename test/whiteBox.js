@@ -22,16 +22,16 @@ tape("Config", {timeout: 5000}, test => {
                 {
                     "type": "wss",
                     "port": 8086,
-                    "key": "config/ssl/passless.key",
-                    "cert": "config/ssl/public.crt",
-                    "ca": "config/ssl/server.pem"
+                    "key": "test/ssl/passless.key",
+                    "cert": "test/ssl/public.crt",
+                    "ca": "test/ssl/server.pem"
                 },
                 {
                     "type": "rss",
                     "port": 8087,
-                    "key": "config/ssl/passless.key",
-                    "cert": "config/ssl/public.crt",
-                    "ca": "config/ssl/server.pem"
+                    "key": "test/ssl/passless.key",
+                    "cert": "test/ssl/public.crt",
+                    "ca": "test/ssl/server.pem"
                 }
             ]
         });
@@ -48,9 +48,9 @@ tape("Server", {timeout: 5000}, test => {
     server.start([{
         type: "wss",
         port: 8086,
-        key: "config/ssl/passless.key",
-        cert: "config/ssl/public.crt",
-        ca: "config/ssl/server.pem"
+        key: "test/ssl/passless.key",
+        cert: "test/ssl/public.crt",
+        ca: "test/ssl/server.pem"
     }], {});
 
     test.equal(server.servers.length, 1);
