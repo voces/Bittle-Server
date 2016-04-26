@@ -10,3 +10,5 @@ Node (npm) dependencies are not included. To fetch them, do the following:
 
 1. Open a terminal in project root (where ```package.json``` is located)
 2. Execute ```npm install```
+
+Test
