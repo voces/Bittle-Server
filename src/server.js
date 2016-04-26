@@ -151,6 +151,18 @@ class WebSocketServer extends EventEmitter {
             //Start listening on a port
             }).listen(config.port);
 
+            this.https.on("error", e => {
+                switch (e.code) {
+                    case "EADDRINUSE":
+                        this.error(`Unable to start https server on port '${config.port}' since it is already in use.`);
+                        break;
+                    default:
+                        this.error(`Untracked error: ${e.code}`);
+                        break;
+                }
+                process.exit(1);
+            });
+
             //Spawn a WS server (essentially a decorator on HTTPS)
             this.server = new ws.Server({server: this.https});
 
