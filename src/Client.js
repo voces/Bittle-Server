@@ -156,8 +156,7 @@ class Client extends EventEmitter {
 
             ]).then(result => {
 
-                let users = result[0],
-                    hash = result[1];
+                let hash = result[1];
 
                 this.log(`Changed password of '${name}'`);
 
@@ -193,21 +192,22 @@ class Client extends EventEmitter {
 
     //This function requires a mailer of some sort
     // Considering https://github.com/andris9/smtp-server
-    resetPass(/*request, name*/) {
+    resetPass(request, name) {
 
         return new Promise((resolve, reject) => {
 
-            // this.server.db.userGet(name).then(users => {
-            //
-            //     let user = users[0];
-            //
-            //     if (user.email) {
-            //
-            //     } else reject("Account has no email address.");
-            //
-            // });
+            this.server.db.userGet(name).then(users => {
 
-            reject("Feature not yet coded.");
+                if (users.length === 0) return reject("Account does not exist.");
+
+                let user = users[0];
+
+                if (user.email) reject("Feature not yet coded.");
+
+                else reject("Account has no email address.");
+
+            });
+
         });
 
     }
@@ -297,7 +297,7 @@ class Client extends EventEmitter {
 
         this.share.addFile(this, new File(request.json.filename, request.json.lines, this.share));
 
-        request.finish();
+        return request.finish();
 
     }
 
@@ -309,7 +309,7 @@ class Client extends EventEmitter {
 
         this.share.removeFile(this, this.share.files[request.json.filename]);
 
-        request.finish();
+        return request.finish();
 
     }
 
@@ -327,7 +327,7 @@ class Client extends EventEmitter {
         this.share.invite(this, client);
         // this.share.addClient(this, client);
 
-        request.finish();
+        return request.finish();
 
     }
 
@@ -342,7 +342,7 @@ class Client extends EventEmitter {
         this.share = client.share;
         this.share.accept(this, client);
 
-        request.finish();
+        return request.finish();
 
     }
 
@@ -356,7 +356,7 @@ class Client extends EventEmitter {
 
         this.share.decline(this, client);
 
-        request.finish();
+        return request.finish();
 
     }
 
@@ -374,11 +374,11 @@ class Client extends EventEmitter {
 
     getFile(request) {
 
-        if (!this.share) return request.fail("Not sharing anything from anyone.");
+        if (!this.share) return request.fail("Not sharing anything with anyone.");
 
-        if (typeof this.share.files[request.json.filename] === "undefined") return request.fail("File does not exist.");
+        if (typeof this.share.files[request.json.filename] === "undefined") return request.fail("Not sharing file.");
 
-        request.finish({lines: this.share.files[request.json.filename].lines});
+        return request.finish({lines: this.share.files[request.json.filename].lines});
 
     }
 
@@ -407,20 +407,20 @@ class Client extends EventEmitter {
 
         file.spliceLine(this, request.json.lineIndex, request.json.start, request.json.deleteCount, request.json.line);
 
-        request.finish();
+        return request.finish();
 
     }
 
     focus(request) {
 
-        if (!this.share) return request.fail("Not sharing anything from anyone.");
+        if (!this.share) return request.fail("Not sharing anything with anyone.");
 
         let file = this.share.files[request.json.filename];
-        if (typeof file === "undefined") return request.fail("File does not exist.");
+        if (typeof file === "undefined") return request.fail("Not sharing file.");
 
         this.share.focus(this, file);
 
-        request.finish({lines: this.share.files[request.json.filename].lines});
+        return request.finish({lines: this.share.files[request.json.filename].lines});
 
     }
 

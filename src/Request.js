@@ -171,6 +171,8 @@ class Request extends EventEmitter {
 
         this.emit("finish", this);
 
+        return true;
+
     }
 
     //Set status of all packets; set part if part > 1
