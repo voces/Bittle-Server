@@ -91,7 +91,7 @@ let dummyDB = {
         userGet: name => new Promise(resolve => name === "fail" ? resolve([]) : resolve([{
             pass: "$2a$10$FptOEONa/OhJeS8gMl7h9u3jNz5h3yB6NsNcKlnvhi6oU3SHI7ioW",   //"phasephrase"
             name: name}])),
-        userCreate: (name, hash, email) => new Promise(resolve => resolve())
+        userCreate: (name, hash, email) => new Promise(resolve => resolve()),
         userSetPass: (name, hash) => new Promise(resolve => resolve())},
 
     dummyServer = {
