@@ -105,7 +105,7 @@ class Request extends EventEmitter {
                         if (typeof this.json[property] === "undefined") return this.fail({reason: `Missing parameter ${property}.`});
                         if (typeof this.json[property] !== "object") return this.fail({reason: `Primitive parameter ${property}, should be an object.`});
                         if (typeof this.json[property] instanceof conditions[condition][property])
-                            return this.fail({reason: `Primitive parameter ${property}, should be an object.`});
+                            return this.fail({reason: `Parameter ${property} should be of type ${conditions[condition][property].constructor.name}.`});
                     }
                     break;
 
@@ -141,26 +141,6 @@ class Request extends EventEmitter {
                 result => this.finish(result),
                 error => this.fail(error)
             ).catch(error => {this.error(error); this.fail("Server syntax error.");});
-
-    }
-
-    enforceParamsAndAccessThenCall(paramTypes, access, callback) {
-
-        let params = this.enforceParams(paramTypes);
-        if (!params) return;
-
-        this.client.server.getRepo(this.json.repo).getRole(this.client.name).then(role => {
-
-            if (PERMISSIONS.indexOf(role) > PERMISSIONS.indexOf(access)) return this.fail("Not enough permission.");
-
-            this.role = role;
-
-            callback(this, ...params).then(
-                result => this.finish(result),
-                error => this.fail(error)
-            ).catch(error => {this.error(error); this.fail("Server syntax error.");});
-
-        }, error => this.fail(error));
 
     }
 

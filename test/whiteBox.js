@@ -88,25 +88,30 @@ tape("Server", {timeout: 5000}, test => {
 });
 
 let dummyDB = {
-    userGet: name => new Promise(resolve => name === "fail" ? resolve([]) : resolve([{
-        pass: "$2a$10$FptOEONa/OhJeS8gMl7h9u3jNz5h3yB6NsNcKlnvhi6oU3SHI7ioW",   //"phasephrase"
-        name: name
-    }]))
-};
+        userGet: name => new Promise(resolve => name === "fail" ? resolve([]) : resolve([{
+            pass: "$2a$10$FptOEONa/OhJeS8gMl7h9u3jNz5h3yB6NsNcKlnvhi6oU3SHI7ioW",   //"phasephrase"
+            name: name}])),
+        userCreate: (name, hash, email) => new Promise(resolve => resolve())
+        userSetPass: (name, hash) => new Promise(resolve => resolve())},
+
+    dummyServer = {
+        db: dummyDB,
+        clients: []
+    };
 
 tape("Client", test => {
-    test.plan(13);
+    test.plan(23);
 
     let socket = new EventEmitter();
     socket.family = "IPv4";
     socket.ip = "localhost";
     socket.port = "12345";
 
-    let client = new Client({db: dummyDB}, socket);
+    let client = new Client(dummyServer, socket);
 
     test.equal(client.constructor.name, "Client", "Client initialized");
 
-    //tag
+    // tag >> 3 tests, 4 total
 
     test.equal(client.tag, "localhost:12345", "Tag on IPv4");
 
@@ -117,7 +122,7 @@ tape("Client", test => {
     client.authenticated = true;
     test.equal(client.tag, "test", "Tag with name/authentication");
 
-    //comparePass(name, pass, hash)
+    //comparePass(name, pass, hash) >> 3 tests, 7 total
 
     client.comparePass("test", "passphrase", "pass").then(
         result => test.equal(result, false, "Invalid pass (hash is not hashed)"),
@@ -131,7 +136,7 @@ tape("Client", test => {
         result => test.equal(result, true, "Working pass"),
         () => test.fail("Some error in comparePass"));
 
-    //saltPass(name, pass)
+    //saltPass(name, pass) >> 3 tests, 10 total
 
     client.saltPass("test", "passphrase").then(
         result => client.comparePass("test", "passphrase", result).then(
@@ -151,7 +156,7 @@ tape("Client", test => {
             () => test.fail("Some error in saltPass/comparePass")),
         () => test.fail("Some error in saltPass"));
 
-    //auth(name, pass)
+    //auth(name, pass) >> 3 tests, 13 total
 
     client.auth("fail").then(
         () => test.fail("Client auth should fail; user does not exist."),
@@ -160,6 +165,47 @@ tape("Client", test => {
         () => test.fail("Client auth should fail; pass is incorrect."),
         error => test.equal(error, "Incorrect pass.", "Incorrect pass"));
     client.auth("test", "passphrase").then(() => test.pass("Correct pass"), () => test.fail("Client auth should work."));
+
+    //register(request, name, pass) >> 2 tests, 15 total
+
+    let registerRequest = {json: {email: ""}};
+    client.register(registerRequest, "test", "test").then(
+        () => test.fail("Client register should fail; user already exists."),
+        error => test.equal(error, "Name is already taken.", "Client.register: taken"));
+    client.register(registerRequest, "fail", "test").then(
+        () => test.pass("Client.register: pass"),
+        error => test.fail("Client.register: should pass"));
+
+    //login(request, name, pass) >> 5 tests, 20 total
+
+    client.login({}, "fail", "test").then(
+        () => test.fail("Client login should fail; user does not exist."),
+        error => test.equal(error, "Account does not exist.", "Client.login: missing"));
+    client.login({}, "test", "test").then(
+        () => test.fail("Client login should fail; pass is incorrect."),
+        error => test.equal(error, "Incorrect pass.", "Client.login: bad pass"));
+    client.login({}, "test", "passphrase").then(result => {
+        test.pass("Client.login: pass");
+        test.equal(client.name, "test", "Client.login: name set");
+        test.equal(dummyServer.clients.test, client, "Client.login: client set in server object list");
+
+        //logout() >> 3 tests, 23 total
+        // This test must be done after login
+
+        client.logout().then(() => {
+            test.equal(client.name, undefined, "Client.logout: name cleared");
+            test.equal(dummyServer.clients.test, undefined, "Client.logout: client cleared from server object list");
+            test.equal(dummyServer.clients.length, 0, "Client.logout: client cleared from server array list");
+        });
+
+    }, () => {
+        test.fail("Client login should pass.");
+        test.fail("Client.login: name set skip");
+        test.fail("Client.login: client in server object list skip");
+        test.fail("Client.register: skip name cleared");
+        test.fail("Client.register: skip client cleared from server object list");
+        test.fail("Client.register: skip client cleared from server array list");
+    });
 
 
 

@@ -19,5 +19,9 @@
     "test": "tape test/whiteBox.js"
   },
   "author": "Robert Coe",
-  "license": "GPL-3.0"
+  "license": "GPL-3.0",
+  "repository": {
+      "type": "git",
+      "url": "https://bitbucket.org/bittle/server.git"
+  }
 }

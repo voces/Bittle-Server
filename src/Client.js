@@ -159,8 +159,6 @@ class Client extends EventEmitter {
                 let users = result[0],
                     hash = result[1];
 
-                if (users.length === 0) return reject("Account does not exist.");
-
                 this.log(`Changed password of '${name}'`);
 
                 this.server.db.userSetPass(name, hash).then(
