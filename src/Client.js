@@ -7,7 +7,11 @@ const EventEmitter = require("events"),
 
     Request = require("./Request"),
     Share = require("./Share"),
-    File = require("./File");
+    File = require("./File"),
+
+    sendMail = require("./mailer"),
+    randToken = require('rand-token'),
+    strings = require("./StringManager");
     // Key = require("./Key");
 
 class Client extends EventEmitter {
@@ -26,10 +30,8 @@ class Client extends EventEmitter {
 
         this.authenticated = false;
 
-        this.share = null;
-
-        this.files = [];
-        this.peers = [];
+        this.share = undefined;
+        this.invites = [];
 
         this.requestQueue = [];
 
@@ -103,6 +105,8 @@ class Client extends EventEmitter {
 
             this.auth(name, pass).then(user => {
 
+                this.log(`Logged in as '${name}'`);
+
                 this.authenticated = true;
 
                 this.name = name;
@@ -110,8 +114,6 @@ class Client extends EventEmitter {
                 this.email = user.email;
 
                 this.server.clients[name] = this;
-
-                this.log(`Logged in as '${this.name}'`);
 
                 resolve();
 
@@ -131,11 +133,19 @@ class Client extends EventEmitter {
 
             delete this.server.clients[this.name];
 
+            if (this.share) {
+                this.share.removeClient(this);
+                this.share = undefined;
+            }
+
+            for (let i = 0; i < this.invites.length; i++)
+                this.invites[i].decline(this);
+
             this.name = undefined;
             this.originaName = undefined;
             this.email = undefined;
 
-            this.listeners = {};
+            this.invites = [];
 
             this.emit("logout");
 
@@ -202,7 +212,21 @@ class Client extends EventEmitter {
 
                 let user = users[0];
 
-                if (user.email) reject("Feature not yet coded.");
+                if (user.email) {
+
+                    let token = randToken.generate(16),
+                        url = `https://notextures.io/bittle/reset/${user.name}/${token}`,
+
+                        emailText = strings.en.passResetEmailText(url),
+                        emailHTML = strings.en.passResetEmailHTML(url);
+
+                    sendMail(user.email, "Pass Reset", emailText, emailHTML).then(
+                        () => resolve(),
+                        () => reject("Unable to send email")
+                    );
+
+                    // reject("Feature not yet coded.");
+                }
 
                 else reject("Account has no email address.");
 
@@ -238,7 +262,7 @@ class Client extends EventEmitter {
 
     }
 
-    changeEmail(reques, pass, newEmail) {
+    changeEmail(request, pass, newEmail) {
 
         return new Promise((resolve, reject) => {
 
@@ -297,6 +321,8 @@ class Client extends EventEmitter {
 
         this.share.addFile(this, new File(request.json.filename, request.json.lines, this.share));
 
+        this.log(`Shared file '${request.json.filename}'`);
+
         return request.finish();
 
     }
@@ -308,6 +334,8 @@ class Client extends EventEmitter {
         if (typeof this.share.files[request.json.filename] === "undefined") return request.fail("Not sharing file.");
 
         this.share.removeFile(this, this.share.files[request.json.filename]);
+
+        this.log(`Unshared file '${request.json.filename}'`);
 
         return request.finish();
 
@@ -325,6 +353,10 @@ class Client extends EventEmitter {
         if (this.share.clients[request.json.name]) return request.fail("Already shared with user.");
 
         this.share.invite(this, client);
+        client.invites.push(this.share);
+
+        this.log(`Invited '${request.json.name}'`);
+
         // this.share.addClient(this, client);
 
         return request.finish();
@@ -339,8 +371,13 @@ class Client extends EventEmitter {
 
         if (typeof client.share.invites[this.name] === "undefined") return request.fail("Not invited.");
 
+        if (typeof this.share !== "undefined") this.share.removeClient(this);
+
         this.share = client.share;
         this.share.accept(this, client);
+        this.invites.splice(this.invites.indexOf(this.share), 1);
+
+        this.log(`Accepted share with '${request.json.blame}'`);
 
         return request.finish();
 
@@ -354,7 +391,10 @@ class Client extends EventEmitter {
 
         if (typeof client.share.invites[this.name] === "undefined") return request.fail("Not invited.");
 
-        this.share.decline(this, client);
+        client.share.decline(client);
+        this.invites.splice(this.invites.indexOf(client.share), 1);
+
+        this.log(`Declined share with '${request.json.blame}'`);
 
         return request.finish();
 
@@ -378,7 +418,9 @@ class Client extends EventEmitter {
 
         if (typeof this.share.files[request.json.filename] === "undefined") return request.fail("Not sharing file.");
 
-        return request.finish({lines: this.share.files[request.json.filename].lines});
+        this.log(`Downloaded '${request.json.filename}'`);
+
+        return request.finish({filename: request.json.filename, lines: this.share.files[request.json.filename].lines});
 
     }
 
@@ -516,12 +558,10 @@ class Client extends EventEmitter {
 
     onClose() {
 
-        if (this.share) {
+        if (this.share) this.share.removeClient(this);
 
-            this.share.removeClient(this);
-            if (this.share.invites[this.name]) delete this.share.invites[this.name];
-
-        }
+        for (let i = 0; i < this.invites.length; i++)
+            this.invites[i].decline(this);
 
         this.log("Connection closed");
         this.emit("close", this);

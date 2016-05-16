@@ -4,7 +4,8 @@
 const tape = require("tape"),
     EventEmitter = require("events"),
 
-    Client = require("../src/Client.js");
+    Client = require("../src/Client.js"),
+    Share = require("../src/Share.js");
 
 tape("Config", {timeout: 5000}, test => {
 
@@ -109,7 +110,8 @@ let dummyDB = {
         userSetPass: () => new Promise(resolve => resolve())},
 
     dummyShare = {
-        files: []},
+        files: [],
+        removeClient: () => {}},
 
     dummyServer = {
         db: dummyDB,
@@ -355,3 +357,18 @@ tape("Client", test => {
     else test.fail("Client.focus: no return type");
 
 });
+
+// tape("Share", test => {
+//     test.plan(1);
+//
+//     let client = {
+//         sends: [],
+//         name: "test",
+//         send: json => sends.push(json)
+//     };
+//
+//     let share = new Share(client);
+//
+//     test.equal(share.clients.test, client, "Share: client map set");
+//
+// });

@@ -89,12 +89,12 @@ class MongoDB extends EventEmitter {
 
             this.db = db;
             this.user = db.collection("user");
-            this.role = db.collection("role");
-            this.repo = db.collection("repo");
-            this.directory = db.collection("directory");
-            this.file = db.collection("file");
-            this.line = db.collection("line");
-            this.listeners = db.collection("listeners");
+            // this.role = db.collection("role");
+            // this.repo = db.collection("repo");
+            // this.directory = db.collection("directory");
+            // this.file = db.collection("file");
+            // this.line = db.collection("line");
+            // this.listeners = db.collection("listeners");
 
             this.emit("ready", {config: this.config, url: this.url});
 
@@ -137,11 +137,11 @@ class MongoDB extends EventEmitter {
 
     clean() {
         this.user.remove({name: /^temp_/i});
-        this.repo.remove({name: /^temp_/i});
-        this.role.remove({$or: [{user: /^temp_/i}, {repo: /^temp_/i}]});
-        this.file.remove({repo: /^temp_/i});
-        this.directory.remove({repo: /^temp_/i});
-        this.line.remove({repo: /^temp_/i});
+        // this.repo.remove({name: /^temp_/i});
+        // this.role.remove({$or: [{user: /^temp_/i}, {repo: /^temp_/i}]});
+        // this.file.remove({repo: /^temp_/i});
+        // this.directory.remove({repo: /^temp_/i});
+        // this.line.remove({repo: /^temp_/i});
     }
 
     log() {

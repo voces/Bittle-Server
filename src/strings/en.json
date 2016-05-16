@@ -1,0 +1,9 @@
+{
+    "passResetEmailText": [
+        "A pass reset has been requested on your account. Click the following link to continue resetting your pass.\n\n"
+    ],
+    "passResetEmailHTML": [
+        "A pass reset has been requested on your account. Click <a href=\"",
+        "\">here</a> to continue resetting your pass."
+    ]
+}

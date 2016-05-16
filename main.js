@@ -36,6 +36,26 @@ require("./src/config")(config => {
 
 });
 
+//For input
+let input = process.openStdin();
+
+//Attach input listener
+input.addListener("data", d => {
+    try {
+
+        /*eslint-disable no-console, no-eval*/
+        console.log(eval(d.toString().substring(0, d.length - 2)));
+        /*eslint-enable no-console, no-eval*/
+
+    } catch (err) {
+
+        /*eslint-disable no-console*/
+        console.error(err);
+        /*eslint-enable no-console*/
+        
+    }
+});
+
 module.exports = {
     db: db,
     server: server

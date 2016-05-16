@@ -218,8 +218,6 @@ class Server extends EventEmitter {
         this.servers = [];
         this.clients = [];
 
-        this.repos = {};
-
         this.db = null;
 
     }
@@ -258,8 +256,8 @@ class Server extends EventEmitter {
 
         this.db.clean();
 
-        for (let name in this.repos)
-            if (name.match(/temp_/i)) delete this.repos[name];
+        // for (let name in this.repos)
+        //     if (name.match(/temp_/i)) delete this.repos[name];
 
     }
 

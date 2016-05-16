@@ -2,9 +2,7 @@
 "use strict";
 
 const EventEmitter = require("events"),
-    colors = require("colors"),
-
-    PERMISSIONS = ["owner", "manager", "contributor", "observer", "none"];
+    colors = require("colors");
 
 class Request extends EventEmitter {
 
@@ -66,7 +64,7 @@ class Request extends EventEmitter {
 
                 //Share
                 case "track": this.enforce({type: {filename: "string"}, instaceof: {lines: Array}}, this.client.track.bind(this.client)); break;
-                // case "untrack": this.enforce({type: {filename: "string"}, instaceof: {lines: Array}}, this.client.untrack.bind(this.client)); break;
+                case "untrack": this.enforce({type: {filename: "string"}}, this.client.untrack.bind(this.client)); break;
                 case "invite": this.enforce({type: {name: "string"}}, this.client.invite.bind(this.client)); break;
                 case "accept": this.enforce({type: {shareId: "number", blame: "string"}}, this.client.accept.bind(this.client)); break;
                 case "decline": this.enforce({type: {shareId: "number", blame: "string"}}, this.client.decline.bind(this.client)); break;
