@@ -5,7 +5,7 @@ const nodemailer = require("nodemailer");
 
 class Mailer {
 
-    constructor(name, service, user, pass) {
+    setup(name, service, user, pass) {
 
         this.name = name;
         this.from = user;
@@ -34,7 +34,7 @@ class Mailer {
             }, (err, success) => {
 
                 if (err) return reject(err);
-                
+
                 resolve(success);
 
             });
@@ -45,6 +45,30 @@ class Mailer {
 
 }
 
-let mailer = new Mailer("Bittle", "Gmail", process.env.NODEMAILER_USER, process.env.NODEMAILER_PASS);
+let mailer = new Mailer(),
+    initialized = false;
 
-module.exports = mailer.send.bind(mailer);
+module.exports = (config) => {
+
+    if (typeof config !== "undefined" && !initialized) {
+
+        let name = config.name || "Bittle",
+            service = config.service || "Gmail",
+
+            user, pass;
+
+        if (config.userEval) user = eval(config.user);
+        else user = config.user || "";
+
+        if (config.passEval) pass = eval(config.pass);
+        else pass = config.pass || "";
+
+        mailer.address = config.address;
+
+        mailer.setup(name, service, user, pass);
+
+    }
+
+    return mailer.send.bind(mailer);
+
+};

@@ -11,6 +11,21 @@ const EventEmitter = require("events"),
 
     Client = require("./Client");
 
+let resetPage;
+
+fs.readFile("index.html", (err, content) => {
+
+    if (err) {
+
+        console.error(err);
+        process.exit(1);
+
+    }
+
+    resetPage = content;
+
+});
+
 function convertCAFile(fileContents) {
 
     fileContents = fileContents.toString().split("-----BEGIN CERTIFICATE-----");
@@ -146,7 +161,7 @@ class WebSocketServer extends EventEmitter {
             //This part only exists to make accepting the certficate easier
             }, (req, res) => {
                 res.writeHead("200");
-                res.end("hello world");
+                res.end(resetPage);
 
             //Start listening on a port
             }).listen(config.port);

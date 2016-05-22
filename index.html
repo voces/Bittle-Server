@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Sync Browser</title>
+
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons">
+    <link rel="stylesheet" href="https://code.getmdl.io/1.1.3/material.indigo-pink.min.css">
+    <script defer src="https://code.getmdl.io/1.1.3/material.min.js"></script>
+
+    <style>
+        .wide {
+            width: 448px;
+            max-width: 100%;
+            top: 50px;
+            left: 50%;
+            margin-bottom: 50px;
+            /* bring your own prefixes */
+            transform: translate(-50%, 0);
+        }
+
+        .wide > .mdl-card__title {
+            color: #fff;
+            height: 176px;
+            background: url("https://notextures.io/files/bat.png") center / cover;
+        }
+
+        .wide > .mdl-card__actions {
+            text-align: right;
+        }
+
+        .center {
+            text-align: center;
+        }
+    </style>
+
+</head>
+
+<body>
+
+    <div class="mdl-layout mdl-js-layout mdl-layout--fixed-header" id="layout">
+
+        <header class="mdl-layout__header">
+            <div class="mdl-layout__header-row">
+                <span class="mdl-layout-title">Bittle Password Reset</span>
+            </div>
+        </header>
+
+        <main class="mdl-layout__content">
+            <div class="page-content">
+
+                <div class="wide mdl-card mdl-shadow--2dp">
+                    <div class="mdl-card__title">
+                        <h2 class="mdl-card__title-text">Enter in your new password</h2>
+                    </div>
+                    <div class="mdl-card__supporting-text">
+                        <div class="center">Your account name is <span id="bittle-name"><em>Bat</em></span>.</div>
+                        <!-- <form action="#"> -->
+                        <div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label">
+                            <input class="mdl-textfield__input" type="password" id="bittle-pass">
+                            <label class="mdl-textfield__label" for="bittle-pass">New Pass</label>
+                            <span class="mdl-textfield__error" id="bittle-pass-error">Pass not set..</span>
+                        </div>
+                        <div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label">
+                            <input class="mdl-textfield__input" type="password" id="bittle-confirm-pass">
+                            <label class="mdl-textfield__label" for="bittle-confirm-pass">Confirm New Pass</label>
+                            <span class="mdl-textfield__error" id="bittle-confirm-pass-error">Passwords must match.</span>
+                        </div>
+                        <!-- </form> -->
+                    </div>
+                    <div class="mdl-card__actions mdl-card--border">
+                        <a class="mdl-button mdl-button--colored mdl-js-button mdl-js-ripple-effect" id="bittle-submit">
+                            Change Password
+                        </a>
+                    </div>
+                </div>
+
+                <div id="snackbar" class="mdl-js-snackbar mdl-snackbar">
+                    <div class="mdl-snackbar__text"></div>
+                    <button class="mdl-snackbar__action" type="button"></button>
+                </div>
+
+                <dialog class="mdl-dialog" id="modal">
+                    <h4 class="mdl-dialog__title" id="modal-title"></h4>
+                    <div class="mdl-dialog__content" id="modal-content"></div>
+                </dialog>
+
+            </div>
+        </main>
+    </div>
+
+    <script>
+
+    (function() {
+
+        //Grab the name and token from the URL
+        let url = function() {
+
+            let locationParts = location.pathname.split("/");
+
+            if (locationParts.length < 3)
+                console.error("Bad URL!");
+
+            return {token: locationParts.pop(), name: locationParts.pop()};
+
+        }();
+
+        //Setup the socket
+        let socket = (function(url) {
+
+            //Connect to the server
+            let socket = new WebSocket("wss://notextures.io:8086");
+
+            //Wrap the socket send with stringify
+            let send = json => socket.send(JSON.stringify(json));
+
+            //Add a listener for messages
+            socket.addEventListener("message", message => {
+
+                message = JSON.parse(message.data);
+
+                console.log("RECV", message);
+
+                switch (message.id) {
+
+                    case "login": {
+
+                        if (message.status === "failed") console.error(message.reason);
+
+                        break;
+
+                    }
+
+                    case "changePass": {
+
+                        if (message.status === "failed") return console.error(message.reason);
+
+                        console.log("success!");
+
+                    }
+
+                }
+
+            });
+
+            //Try to log in with the token right away
+            socket.addEventListener("open", () => send({id: "login", name: url.name, pass: url.token}));
+
+            return {send: send};
+
+        }(url));
+
+        let page = (function(socket, url) {
+
+            //Grab various elements
+            let bittleName = document.getElementById("bittle-name"),
+                bittlePass = document.getElementById("bittle-pass"),
+                bittlePassError = document.getElementById("bittle-pass-error"),
+                bittleConfirmPass = document.getElementById("bittle-confirm-pass"),
+                bittleConfirmPassError = document.getElementById("bittle-confirm-pass-error"),
+                bittleSubmit = document.getElementById("bittle-submit"),
+
+                modal = document.getElementById("modal"),
+                modalTitle = document.getElementById("modal-title"),
+                modalContent = document.getElementById("modal-content");
+
+            //Update the elements
+            bittleName.textContent = url.name;
+            setTimeout(() => bittlePass.focus(), 500);
+
+
+            //Listen for blurs (error checking)
+            bittlePass.addEventListener("blur", verifyPass);
+            bittleConfirmPass.addEventListener("blur", verifyConfirmPass);
+
+            function verifyPass() {
+
+                if (bittlePass.value === "") {
+
+                    bittlePassError.parentElement.classList.add("is-invalid");
+                    return false;
+
+                }
+
+                return true;
+
+            }
+
+            function verifyConfirmPass() {
+
+                if (bittleConfirmPass.value !== bittlePass.value) {
+
+                    bittleConfirmPassError.parentElement.classList.add("is-invalid");
+                    return false;
+
+                }
+
+                return true;
+
+            }
+
+            //Listen for submission
+            bittleSubmit.addEventListener("click", () => {
+
+                if (verifyPass() + verifyConfirmPass() < 2) return;
+
+                socket.send({
+                    id: "changePass",
+                    newPass: bittlePass.value
+                });
+
+            });
+
+            let page = {};
+            Object.defineProperties(page, {
+                // "modal"
+            });
+
+            return page;
+
+        }(socket, url));
+
+    }());
+
+    </script>
+
+</body>
+
+</html>

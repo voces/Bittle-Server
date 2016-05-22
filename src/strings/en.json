@@ -1,9 +1,9 @@
 {
     "passResetEmailText": [
-        "A pass reset has been requested on your account. Click the following link to continue resetting your pass.\n\n"
+        "A pass reset has been requested on your account. Click the following link to continue resetting your pass.\n\nhttps://notextures.io:8086/"
     ],
     "passResetEmailHTML": [
-        "A pass reset has been requested on your account. Click <a href=\"",
+        "A pass reset has been requested on your account. Click <a href=\"https://notextures.io:8086/",
         "\">here</a> to continue resetting your pass."
     ]
 }

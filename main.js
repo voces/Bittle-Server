@@ -21,6 +21,9 @@ require("./src/config")(config => {
     //Freeze the config; make it is static forever
     deepFreeze(config);
 
+    //Launch the mailer
+    require("./src/mailer.js")(config.email);
+
     //Launch the database and connect to it
     db.start(config.database);
 
@@ -52,7 +55,7 @@ input.addListener("data", d => {
         /*eslint-disable no-console*/
         console.error(err);
         /*eslint-enable no-console*/
-        
+
     }
 });
 

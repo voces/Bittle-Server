@@ -9,7 +9,7 @@ const EventEmitter = require("events"),
     Share = require("./Share"),
     File = require("./File"),
 
-    sendMail = require("./mailer"),
+    sendMail = require("./mailer")(),
     randToken = require('rand-token'),
     strings = require("./StringManager");
     // Key = require("./Key");
@@ -57,12 +57,45 @@ class Client extends EventEmitter {
 
                 if (users.length === 0) return reject("Account does not exist.");
 
-                this.comparePass(name, pass, users[0].pass).then(matched => {
+                let user = users[0];
 
-                    if (matched) resolve(users[0]);
-                    else reject("Incorrect pass.");
+                if (typeof user.resetToken !== "undefined")
 
-                }, error => {this.error(error); reject("Unable to query database.");});
+                    Promise.all([
+
+                        this.comparePass(name, pass, user.pass),
+                        this.comparePass(name, pass, user.resetToken),
+
+                    ]).then(result => {
+
+                        let rightPass = result[0],
+                            rightToken = result[1];
+
+                        if (rightPass) {
+
+                            this.server.db.userClearResetToken(user.name);
+                            resolve(user);
+
+                        } else if (rightToken) {
+
+                            this.resetToken = true;
+                            resolve(user);
+
+                        }
+
+                        reject("Incorrect pass.");
+
+                    });
+
+                else
+
+                    this.comparePass(name, pass, users[0].pass).then(matched => {
+
+                        if (matched) resolve(users[0]);
+                        else reject("Incorrect pass.");
+
+                    }, error => {this.error(error); reject("Unable to query database.");});
+
             }, error => {this.error(error); reject("Unable to query database.");});
 
         });
@@ -170,6 +203,8 @@ class Client extends EventEmitter {
 
                 this.log(`Changed password of '${name}'`);
 
+                this.server.db.userClearResetToken(user.name);
+
                 this.server.db.userSetPass(name, hash).then(
                     (/*result*/) => resolve(),
                     error => {this.error(error); reject("Unable to query database.");}
@@ -215,20 +250,24 @@ class Client extends EventEmitter {
                 if (user.email) {
 
                     let token = randToken.generate(16),
-                        url = `https://notextures.io/bittle/reset/${user.name}/${token}`,
+                        url = `${user.name}/${token}`,
 
                         emailText = strings.en.passResetEmailText(url),
                         emailHTML = strings.en.passResetEmailHTML(url);
 
+                    this.saltPass(name, token).then(hash => this.server.db.userSetResetToken(name, hash));
+
                     sendMail(user.email, "Pass Reset", emailText, emailHTML).then(
+
                         () => resolve(),
-                        () => reject("Unable to send email")
+                        error => {
+                            this.error(error);
+                            reject("Unable to send email");
+                        }
+
                     );
 
-                    // reject("Feature not yet coded.");
-                }
-
-                else reject("Account has no email address.");
+                } else reject("Account has no email address.");
 
             });
 
@@ -236,27 +275,50 @@ class Client extends EventEmitter {
 
     }
 
-    changePass(request, pass, newPass) {
+    changePass(request, newPass) {
 
         return new Promise((resolve, reject) => {
 
-            Promise.all([
+            if (typeof request.json.pass === "string")
 
-                this.auth(this.name, pass),
-                this.saltPass(this.name, newPass)
+                Promise.all([
 
-            ]).then(result => {
+                    this.auth(this.name, request.json.pass),
+                    this.saltPass(this.name, newPass)
 
-                let hash = result[1];
+                ]).then(result => {
 
-                this.log(`Changed password of '${this.name}'`);
+                    let hash = result[1];
 
-                this.server.db.userSetPass(this.name, hash).then(
-                    (/*result*/) => resolve(),
-                    error => {this.error(error); reject("Unable to query database.");}
-                );
+                    this.log(`Changed password of '${this.name}'`);
 
-            }, badCredentials => reject(badCredentials));
+                    this.server.db.userClearResetToken(user.name);
+
+                    this.server.db.userSetPass(this.name, hash).then(
+                        (/*result*/) => resolve(),
+                        error => {this.error(error); reject("Unable to query database.");}
+                    );
+
+                }, badCredentials => reject(badCredentials));
+
+            else if (this.resetToken)
+
+                this.saltPass(this.name, newPass).then(hash => {
+
+                    this.log(`Changed password of '${this.name}'`);
+
+                    this.resetToken = false;
+
+                    this.server.db.userClearResetToken(this.name);
+
+                    this.server.db.userSetPass(this.name, hash).then(
+                        (/*result*/) => resolve(),
+                        error => {this.error(error); reject("Unable to query database.");}
+                    );
+
+                });
+
+            else reject("Missing parameter pass.");
 
         });
 

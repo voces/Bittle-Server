@@ -59,7 +59,7 @@ class Request extends EventEmitter {
 
                 //Auth
                 case "logout": this.enforceParamsThenCall(null, this.client.logout.bind(this.client)); break;
-                case "changePass": this.enforceParamsThenCall({pass: "string", newPass: "string"}, this.client.changePass.bind(this.client)); break;
+                case "changePass": this.enforceParamsThenCall({newPass: "string"}, this.client.changePass.bind(this.client)); break;
                 case "changeEmail": this.enforceParamsThenCall({pass: "string", newEmail: "string"}, this.client.changeEmail.bind(this.client)); break;
 
                 //Share
@@ -106,6 +106,10 @@ class Request extends EventEmitter {
                             return this.fail({reason: `Parameter ${property} should be of type ${conditions[condition][property].constructor.name}.`});
                     }
                     break;
+
+                case "or":
+                    for (let property in conditions[condition])
+                        if (this.enforce(conditions[condition][property]) !== false) break;
 
             }
 

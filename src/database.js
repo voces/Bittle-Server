@@ -124,11 +124,19 @@ class MongoDB extends EventEmitter {
     }
 
     userSetPass(name, pass) {
-        return this.user.updateOne({name: name}, {$set:{pass: pass, updated: Date.now()}});
+        return this.user.updateOne({name: name}, {$set: {pass: pass, updated: Date.now()}});
     }
 
     userSetEmail(name, email) {
-        return this.user.updateOne({name: name}, {$set:{email: email, updated: Date.now()}});
+        return this.user.updateOne({name: name}, {$set: {email: email, updated: Date.now()}});
+    }
+
+    userSetResetToken(name, token) {
+        return this.user.updateOne({name: name}, {$set: {resetToken: token, updated: Date.now()}});
+    }
+
+    userClearResetToken(name) {
+        return this.user.updateOne({name: name}, {$unset: {resetToken: "", updated: Date.now()}});
     }
 
     /******************************************************
@@ -217,6 +225,14 @@ class Database extends EventEmitter {
 
     userSetEmail(name, email) {
         return this.db.userSetEmail(name, email);
+    }
+
+    userSetResetToken(name, token) {
+        return this.db.userSetResetToken(name, token);
+    }
+
+    userClearResetToken(name) {
+        return this.db.userClearResetToken(name);
     }
 
     /******************************************************

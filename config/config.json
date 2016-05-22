@@ -20,5 +20,13 @@
             "cert": "config/ssl/public.crt",
             "ca": "config/ssl/server.pem"
         }
-    ]
+    ],
+    "email": {
+        "name": "Bittle",
+        "service": "Gmail",
+        "user": "process.env.NODEMAILER_USER",
+        "userEval": true,
+        "pass": "process.env.NODEMAILER_PASS",
+        "passEval": true
+    }
 }
