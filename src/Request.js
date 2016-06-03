@@ -25,64 +25,66 @@ class Request extends EventEmitter {
 
         // this.client.log("[PROCESS]", this.json.id);
 
+        if (this.json.id === "clean") return this.client.server.clean(), this.finish();
+
+
+
+
         //Handle PREAUTH events here
         if (!this.client.authenticated)
 
             switch (this.json.id) {
 
-                case "clean": this.client.server.clean(); this.finish(); break;
-
-                case "register": this.enforceParamsThenCall({name: "string", pass: "string"}, this.client.register.bind(this.client)); break;
-                case "login": this.enforceParamsThenCall({name: "string", pass: "string"}, this.client.login.bind(this.client)); break;
+                case "register": return this.enforceParamsThenCall({name: "string", pass: "string"}, this.client.register.bind(this.client));
+                case "login": return this.enforceParamsThenCall({name: "string", pass: "string"}, this.client.login.bind(this.client));
 
                 case "changePass":
-                    this.enforceParamsThenCall({name: "string", pass: "string", newPass: "string"}, this.client.changePassAuth.bind(this.client));
-                    break;
+                    return this.enforceParamsThenCall({name: "string", pass: "string", newPass: "string"}, this.client.changePassAuth.bind(this.client));
 
                 case "changeEmail":
-                    this.enforceParamsThenCall({name: "string", pass: "string", newEmail: "string"}, this.client.changeEmailAuth.bind(this.client));
-                    break;
+                    return this.enforceParamsThenCall({name: "string", pass: "string", newEmail: "string"}, this.client.changeEmailAuth.bind(this.client));
 
-                case "resetPass": this.enforceParamsThenCall({name: "string"}, this.client.resetPass.bind(this.client)); break;
+                case "resetPass": return this.enforceParamsThenCall({name: "string"}, this.client.resetPass.bind(this.client));
 
-                default: this.fail({reason: "Request ID is not valid or is not allowed before logging in.", data: this.json});
+                // default: this.fail({reason: "Request ID is not valid or is not allowed before logging in.", data: this.json});
 
             }
 
         //Handle all other events here
-        else
+        switch (this.json.id) {
 
-            switch (this.json.id) {
+            //Misc
+            case "clean": this.client.server.db.clean(); this.finish(); break;
 
-                //Misc
-                case "clean": this.client.server.db.clean(); this.finish(); break;
+            //Auth
+            case "logout": this.enforceParamsThenCall(null, this.client.logout.bind(this.client)); break;
+            case "changePass": this.enforceParamsThenCall({newPass: "string"}, this.client.changePass.bind(this.client)); break;
+            case "changeEmail": this.enforceParamsThenCall({pass: "string", newEmail: "string"}, this.client.changeEmail.bind(this.client)); break;
 
-                //Auth
-                case "logout": this.enforceParamsThenCall(null, this.client.logout.bind(this.client)); break;
-                case "changePass": this.enforceParamsThenCall({newPass: "string"}, this.client.changePass.bind(this.client)); break;
-                case "changeEmail": this.enforceParamsThenCall({pass: "string", newEmail: "string"}, this.client.changeEmail.bind(this.client)); break;
+            //Share
+            case "track": this.enforce({type: {filename: "string"}, instaceof: {lines: Array}}, this.client.track.bind(this.client)); break;
+            case "untrack": this.enforce({type: {filename: "string"}}, this.client.untrack.bind(this.client)); break;
+            case "invite": this.enforce({type: {name: "string"}}, this.client.invite.bind(this.client)); break;
+            case "accept": this.enforce({type: {shareId: "number", blame: "string"}}, this.client.accept.bind(this.client)); break;
+            case "decline": this.enforce({type: {shareId: "number", blame: "string"}}, this.client.decline.bind(this.client)); break;
+            case "request": this.enforce({type: {shareId: "number"}}, this.client.request.bind(this.client)); break;
+            case "approve": this.enforce({type: {shareId: "number", name: "string"}}, this.client.approve.bind(this.client)); break;
+            case "reject": this.enforce({type: {shareId: "number", name: "string"}}, this.client.reject.bind(this.client)); break;
+            // case "unshare": this.enforce({type: {name: "string"}}, this.client.unshare.bind(this.client)); break;
 
-                //Share
-                case "track": this.enforce({type: {filename: "string"}, instaceof: {lines: Array}}, this.client.track.bind(this.client)); break;
-                case "untrack": this.enforce({type: {filename: "string"}}, this.client.untrack.bind(this.client)); break;
-                case "invite": this.enforce({type: {name: "string"}}, this.client.invite.bind(this.client)); break;
-                case "accept": this.enforce({type: {shareId: "number", blame: "string"}}, this.client.accept.bind(this.client)); break;
-                case "decline": this.enforce({type: {shareId: "number", blame: "string"}}, this.client.decline.bind(this.client)); break;
-                // case "unshare": this.enforce({type: {name: "string"}}, this.client.unshare.bind(this.client)); break;
+            //Files
+            case "get": this.enforce({type: {filename: "string"}}, this.client.getFile.bind(this.client)); break;
+            case "lines": this.enforce({type: {filename: "string", start: "number", deleteCount: "number"},
+                instaceof: {lines: Array}}, this.client.lines.bind(this.client)); break;
+            case "line": this.enforce({type: {filename: "string", lineIndex: "number", start: "number", deleteCount: "number", line: "string"}},
+                this.client.line.bind(this.client)); break;
 
-                //Files
-                case "get": this.enforce({type: {filename: "string"}}, this.client.getFile.bind(this.client)); break;
-                case "lines": this.enforce({type: {filename: "string", start: "number", deleteCount: "number"},
-                    instaceof: {lines: Array}}, this.client.lines.bind(this.client)); break;
-                case "line": this.enforce({type: {filename: "string", lineIndex: "number", start: "number", deleteCount: "number", line: "string"}},
-                    this.client.line.bind(this.client)); break;
+            //Monitor
+            case "focus": this.enforce({type: {filename: "string", line: "number", column: "number"}}, this.client.focus.bind(this.client)); break;
 
-                //Monitor
-                case "focus": this.enforce({type: {filename: "string", line: "number", column: "number"}}, this.client.focus.bind(this.client)); break;
+            default: this.finish({id: "onReject", reason: "Bad ID.", data: this.json});
 
-                default: this.finish({id: "onReject", reason: "Bad ID.", data: this.json});
-
-            }
+        }
 
     }
 

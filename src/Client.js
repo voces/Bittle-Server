@@ -14,6 +14,8 @@ const EventEmitter = require("events"),
     strings = require("./StringManager");
     // Key = require("./Key");
 
+let uid = 0;
+
 class Client extends EventEmitter {
 
     //Bind some events and set defaults
@@ -30,10 +32,14 @@ class Client extends EventEmitter {
 
         this.authenticated = false;
 
-        this.share = undefined;
+        this.share = new Share(this);
         this.invites = [];
 
         this.requestQueue = [];
+
+        this.name = "anon#" + uid++;
+
+        this.send({id: "connected", name: this.name, shareId: this.share.id});
 
         this.log("New connection");
 
@@ -44,8 +50,8 @@ class Client extends EventEmitter {
 
         if (this.authenticated) return this.name;
 
-        if (this.socket.family === "IPv6") return `[${this.socket.ip}]:${this.socket.port}`;
-        return `${this.socket.ip}:${this.socket.port}`;
+        if (this.socket.family === "IPv6") return `${this.name}@[${this.socket.ip}]:${this.socket.port}`;
+        return `${this.name}@${this.socket.ip}:${this.socket.port}`;
 
     }
 
@@ -462,6 +468,60 @@ class Client extends EventEmitter {
 
     }
 
+    request(request) {
+
+        let share = Share.list[request.json.shareId];
+
+        if (typeof share === "undefined") return request.fail("Share does not exist.");
+
+        share.request(this);
+
+        this.log(`Requested to '${request.json.shareId}'`);
+
+        return request.finish();
+
+    }
+
+    approve(request) {
+
+        let share = Share.list[request.json.shareId];
+
+        if (typeof share === "undefined") return request.fail("Share does not exist.");
+
+        let client = share.requests[request.json.name];
+
+        if (typeof client === "undefined") return request.fail("User has not requested.");
+
+        client.share = share;
+        share.approve(this, client);
+
+        this.log(`Approved '${request.json.name}' to '${request.json.shareId}'`);
+
+        return request.finish();
+
+    }
+
+    reject(request) {
+
+        let share = Share.list[request.json.shareId];
+
+        if (typeof share === "undefined") return request.fail("Share does not exist.");
+
+        let client = share.requests[request.json.name];
+
+        if (typeof client === "undefined") return request.fail("User has not requested.");
+
+        client.share = share;
+        share.reject(this, client);
+
+        client.send({id: "reject"});
+
+        this.log(`Rejected '${request.json.name}' to '${request.json.shareId}'`);
+
+        return request.finish();
+
+    }
+
     // unshare(request) {
     //
     //     if (!this.share) return request.fail("Not sharing anything with anyone.");
@@ -524,7 +584,7 @@ class Client extends EventEmitter {
 
         this.share.focus(this, file);
 
-        return request.finish({lines: this.share.files[request.json.filename].lines});
+        return request.finish();
 
     }
 
