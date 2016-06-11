@@ -73,6 +73,7 @@ class Request extends EventEmitter {
             // case "unshare": this.enforce({type: {name: "string"}}, this.client.unshare.bind(this.client)); break;
 
             //Files
+            case "renameFile": this.enforce({type: {filename: "string", newFilename: "string"}}, this.client.renameFile.bind(this.client)); break;
             case "get": this.enforce({type: {filename: "string"}}, this.client.getFile.bind(this.client)); break;
             case "lines": this.enforce({type: {filename: "string", start: "number", deleteCount: "number"},
                 instaceof: {lines: Array}}, this.client.lines.bind(this.client)); break;

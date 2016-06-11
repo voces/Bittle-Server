@@ -534,6 +534,19 @@ class Client extends EventEmitter {
     //
     // }
 
+    renameFile(request) {
+
+        if (!this.share) return request.fail("Not sharing anything with anyone.");
+
+        let file = this.share.files[request.json.filename];
+        if (typeof file === "undefined") return request.fail("Not sharing file.");
+
+        this.share.renameFile(this, file, request.json.newFilename);
+
+        return request.finish();
+
+    }
+
     getFile(request) {
 
         if (!this.share) return request.fail("Not sharing anything with anyone.");

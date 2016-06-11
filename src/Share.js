@@ -47,6 +47,18 @@ class Share {
 
     }
 
+    renameFile(blame, file, filename) {
+
+        this.broadcast({id: "renameFile", filename: file.filename, blame: blame.name, newFilename: filename});
+
+        delete this.files[file.filename];
+
+        file.filename = filename;
+
+        this.files[filename] = file;
+
+    }
+
     invite(blame, client) {
 
         this.invites[client.name] = client;
