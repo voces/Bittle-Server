@@ -26,6 +26,7 @@ class MongoDB extends EventEmitter {
         //Capture the output: both general and errors
         this.process.stdout.on("data", this.processOut.bind(this));
         this.process.stderr.on("data", this.processErr.bind(this));
+        this.process.on("error", err => this.processErr(err));
 
     }
 
@@ -54,7 +55,15 @@ class MongoDB extends EventEmitter {
     }
 
     processErr(data) {
+
         this.emit("processError", data);
+
+        if (data.code === "ENOENT") {
+            this.error("MongoDB is not installed! Server shutting down due to" +
+                " unrecoverable database.");
+            process.exit(1);
+        }
+
         this.error(data);
     }
 

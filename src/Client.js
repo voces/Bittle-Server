@@ -11,7 +11,7 @@ const EventEmitter = require("events"),
 
     sendMail = require("./mailer")(),
     randToken = require('rand-token'),
-    strings = require("./StringManager");
+    strings = require("./stringManager");
     // Key = require("./Key");
 
 let uid = 0;
